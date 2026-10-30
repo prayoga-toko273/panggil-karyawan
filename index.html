@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="id"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panggil Karyawan</title>
+<link rel="stylesheet" href="style.css">
+</head><body><main>
+<div id="form">
+<h1>Butuh bantuan? 👋</h1>
+<p class="s" id="sub">Memuat…</p>
+<label>1. Pilih brand</label>
+<div class="grid" id="brands"></div>
+<label>2. Butuh bantuan apa?</label>
+<div class="grid" id="needs">
+<button class="opt on">Cek size</button><button class="opt">Info promo</button>
+<button class="opt">Cari barang</button><button class="opt">Ruang ganti</button>
+</div>
+<label for="note">Detail (opsional)</label>
+<input id="note" placeholder="Contoh: kemeja biru size L">
+<label for="nm">Nama atau ciri Anda (opsional)</label>
+<input id="nm" placeholder="Contoh: Ibu baju merah">
+<button class="btn" id="send">Panggil Karyawan</button>
+</div>
+<div id="status" class="hide">
+<div class="card big"><div class="e" id="se">⏳</div><h1 id="st">Permintaan terkirim</h1>
+<p class="s" id="sd">Mohon tunggu sebentar, karyawan sedang dihubungi.</p></div>
+<button class="btn" id="again" style="background:var(--card);color:var(--tx);border:1px solid var(--bd)">Buat permintaan baru</button>
+</div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+var db=supabase.createClient(CFG.url,CFG.key);
+var $=function(x){return document.getElementById(x)};
+var pulau=new URLSearchParams(location.search).get("pulau")||"p1";
+var brand=null,picked=false,need="Cek size",poll=null;
+document.querySelectorAll("#needs .opt").forEach(function(b){b.onclick=function(){
+document.querySelectorAll("#needs .opt").forEach(function(o){o.classList.remove("on")});b.classList.add("on");need=b.textContent}});
+function addBrand(id,nama){var e=document.createElement("button");e.className="opt";e.textContent=nama;
+e.onclick=function(){brand=id;picked=true;[].forEach.call($("brands").children,function(o){o.classList.remove("on")});e.classList.add("on")};
+$("brands").appendChild(e)}
+async function init(){
+var p=await db.from("pulau").select("nama").eq("id",pulau).maybeSingle();
+if(!p.data){$("sub").textContent="Area tidak ditemukan. Silakan scan ulang QR.";return}
+$("sub").textContent="Area: "+p.data.nama+". Karyawan kami siap membantu.";
+var b=await db.from("brand").select("id,nama").eq("pulau_id",pulau).order("nama");
+(b.data||[]).forEach(function(x){addBrand(x.id,x.nama)});addBrand(null,"Tidak tahu / semua")}
+function show(r){var s=r.status;
+$("se").textContent=s==="menunggu"?"⏳":s==="diambil"?"🏃":"✅";
+$("st").textContent=s==="menunggu"?"Permintaan terkirim":s==="diambil"?"Karyawan sedang menuju Anda":"Terima kasih!";
+$("sd").textContent=s==="menunggu"?"Mohon tunggu sebentar, karyawan sedang dihubungi.":s==="diambil"?((r.diambil_oleh||"Karyawan")+" akan segera tiba."):"Semoga bantuan kami berguna.";
+if(s==="selesai"&&poll){clearInterval(poll);poll=null}}
+$("send").onclick=async function(){
+if(!picked){alert("Pilih brand dulu ya.");return}
+var last=+localStorage.getItem("last")||0;
+if(Date.now()-last<60000){alert("Permintaan sebelumnya baru terkirim. Mohon tunggu sebentar.");return}
+$("send").disabled=true;
+var r=await db.from("permintaan").insert({pulau_id:pulau,brand_id:brand,kebutuhan:need,catatan:$("note").value,nama:$("nm").value}).select("id").single();
+$("send").disabled=false;
+if(r.error){alert("Gagal mengirim. Coba lagi.");return}
+localStorage.setItem("last",Date.now());
+var id=r.data.id;$("form").classList.add("hide");$("status").classList.remove("hide");show({status:"menunggu"});
+db.channel("r"+id).on("postgres_changes",{event:"UPDATE",schema:"public",table:"permintaan",filter:"id=eq."+id},function(m){show(m.new)}).subscribe();
+poll=setInterval(async function(){var q=await db.from("permintaan").select("status,diambil_oleh").eq("id",id).maybeSingle();if(q.data)show(q.data)},5000)};
+$("again").onclick=function(){$("note").value="";$("form").classList.remove("hide");$("status").classList.add("hide")};
+init();
+</script></body></html>
