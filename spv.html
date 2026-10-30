@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="id"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Monitor SPV</title>
+<link rel="manifest" href="spv-manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b5cff">
+<link rel="stylesheet" href="style.css">
+<style>.k{font-size:28px;font-weight:700;margin:0}.red{background:color-mix(in srgb,#dc2626 16%,var(--card));color:#dc2626}table{width:100%;border-collapse:collapse}td{padding:6px 0;border-bottom:1px solid var(--bd)}td:last-child{text-align:right;font-weight:600}</style>
+</head><body><main>
+<h1>Monitor SPV</h1>
+<select id="pl" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit;margin-bottom:10px"></select>
+<button class="btn" id="notif" style="margin:0 0 6px">🔔 Aktifkan notifikasi SPV</button>
+<p class="s" id="nst" style="font-size:14px">Notifikasi masuk kalau permintaan belum diambil lebih dari 3 menit.</p>
+<div class="grid">
+<div class="card"><div class="s" style="margin:0">Menunggu</div><p class="k" id="k1">0</p></div>
+<div class="card"><div class="s" style="margin:0">Diproses</div><p class="k" id="k2">0</p></div>
+<div class="card"><div class="s" style="margin:0">Selesai hari ini</div><p class="k" id="k3">0</p></div>
+<div class="card"><div class="s" style="margin:0">Rata-rata respons</div><p class="k" id="k4">-</p></div>
+</div>
+<h1 style="font-size:18px;margin-top:8px">Sedang berjalan</h1><div id="act"></div>
+<h1 style="font-size:18px">Per brand (hari ini)</h1><div class="card"><table id="tb"></table></div>
+<h1 style="font-size:18px">Per karyawan (hari ini)</h1><div class="card"><table id="tk"></table></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="push.js"></script>
+<script>
+var db=supabase.createClient(CFG.url,CFG.key);
+var $=function(x){return document.getElementById(x)};
+var sel=localStorage.getItem("spv_pulau")||"all",brands={},pulaus={};
+function info(){return {nama:"SPV",peran:"spv",pulau:sel==="all"?null:sel,brand:null}}
+function menit(a,b){return Math.round((new Date(b)-new Date(a))/60000)}
+function rows(el,pairs){el.innerHTML="";if(!pairs.length){var r=el.insertRow();r.insertCell().textContent="Belum ada data";return}
+pairs.forEach(function(p){var r=el.insertRow();r.insertCell().textContent=p[0];r.insertCell().textContent=p[1]})}
+function hitung(a){var o={};a.forEach(function(x){o[x]=(o[x]||0)+1});return Object.keys(o).map(function(k){return [k,o[k]]}).sort(function(p,q){return q[1]-p[1]})}
+async function load(){
+var d0=new Date();d0.setHours(0,0,0,0);
+var q=db.from("permintaan").select("*").gte("dibuat",d0.toISOString()).order("dibuat",{ascending:false});
+if(sel!=="all")q=q.eq("pulau_id",sel);
+var r=await q,all=r.data||[];
+var w=all.filter(function(x){return x.status==="menunggu"}),p=all.filter(function(x){return x.status==="diambil"}),s=all.filter(function(x){return x.status==="selesai"});
+$("k1").textContent=w.length;$("k2").textContent=p.length;$("k3").textContent=s.length;
+var res=all.filter(function(x){return x.diambil_pada}).map(function(x){return (new Date(x.diambil_pada)-new Date(x.dibuat))/60000});
+$("k4").textContent=res.length?(res.reduce(function(a,b){return a+b},0)/res.length).toFixed(1)+" mnt":"-";
+var A=$("act");A.innerHTML="";var live=w.concat(p);
+if(!live.length)A.innerHTML='<div class="card s">Tidak ada permintaan aktif. 👍</div>';
+live.forEach(function(x){var c=document.createElement("div");c.className="card";
+var t=document.createElement("div");t.className="row";var b=document.createElement("b");
+b.textContent=(brands[x.brand_id]||"Semua brand")+" · "+x.kebutuhan;
+var g=document.createElement("span");var m=menit(x.dibuat,new Date());
+if(x.status==="menunggu"){g.className="tag"+(m>=3?" red":"");g.textContent="Menunggu "+m+" mnt"}else{g.className="tag g";g.textContent=(x.diambil_oleh||"")+" · "+m+" mnt"}
+t.appendChild(b);t.appendChild(g);c.appendChild(t);
+var d=document.createElement("div");d.className="s";d.style.margin="4px 0 0";d.textContent=(pulaus[x.pulau_id]||x.pulau_id)+(x.nama?" · "+x.nama:"")+(x.catatan?" · "+x.catatan:"");
+c.appendChild(d);A.appendChild(c)});
+rows($("tb"),hitung(all.map(function(x){return brands[x.brand_id]||"Semua brand"})));
+rows($("tk"),hitung(all.filter(function(x){return x.diambil_oleh}).map(function(x){return x.diambil_oleh})))}
+$("notif").onclick=async function(){try{await aktifkanPush(db,info());$("nst").textContent="✅ Notifikasi SPV aktif."}catch(e){$("nst").textContent="⚠️ "+e.message}};
+async function init(){
+var pl=await db.from("pulau").select("id,nama").order("id");
+var o0=document.createElement("option");o0.value="all";o0.textContent="Semua pulau";$("pl").appendChild(o0);
+(pl.data||[]).forEach(function(p){pulaus[p.id]=p.nama;var o=document.createElement("option");o.value=p.id;o.textContent=p.nama;$("pl").appendChild(o)});
+$("pl").value=sel;
+$("pl").onchange=function(){sel=$("pl").value;localStorage.setItem("spv_pulau",sel);load();segarkanPush(db,info())};
+var b=await db.from("brand").select("id,nama");(b.data||[]).forEach(function(x){brands[x.id]=x.nama});
+if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$("nst").textContent="iPhone: tekan Bagikan lalu Add to Home Screen, kemudian buka dari ikonnya.";
+else if(await segarkanPush(db,info()))$("nst").textContent="✅ Notifikasi SPV aktif.";
+await load();
+db.channel("spv").on("postgres_changes",{event:"*",schema:"public",table:"permintaan"},load).subscribe();
+setInterval(load,10000)}
+init();
+</script></body></html>
