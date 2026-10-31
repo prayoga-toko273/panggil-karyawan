@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="id"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tambah Pulau atau Brand</title>
+<link rel="stylesheet" href="style.css">
+<style>textarea{width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit}
+pre{white-space:pre-wrap;word-break:break-all;font-size:12px;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px}
+canvas{max-width:100%;border-radius:12px;border:1px solid var(--bd)}a.l{word-break:break-all}</style>
+</head><body><main>
+<h1>Tambah Pulau atau Brand</h1>
+<p class="s">Isi data, lalu salin SQL ke Supabase dan cetak QR-nya.</p>
+<label for="kode">Kode pulau (huruf kecil, tanpa spasi)</label><input id="kode" placeholder="p2">
+<label for="nama">Nama pulau</label><input id="nama" placeholder="Pulau Wanita 2">
+<label for="br">Daftar brand (satu brand per baris)</label>
+<textarea id="br" rows="8" placeholder="Geela&#10;Logo&#10;C2"></textarea>
+<label style="font-weight:400"><input type="checkbox" id="ada" style="width:auto"> Pulau ini sudah ada, saya hanya menambah brand</label>
+<button class="btn" id="gen">Buat SQL dan QR</button>
+<div id="out" class="hide">
+<h1 style="margin-top:22px;font-size:18px">1. Salin SQL ini ke Supabase</h1>
+<pre id="sql"></pre><button class="btn sm" id="cp">Salin SQL</button>
+<p class="s">Setelah SQL dijalankan, PIN pulau baru dibuat otomatis. Lihat di Supabase: Table Editor, tabel <b>pin_akses</b>, baris dengan kunci sama dengan kode pulau. Bagikan PIN itu ke karyawan pulau tersebut.</p>
+<h1 style="margin-top:22px;font-size:18px">2. Alamat</h1>
+<p class="s">Pelanggan (untuk QR):<br><a class="l" id="l1"></a></p>
+<p class="s">Karyawan:<br><a class="l" id="l2"></a></p>
+<h1 style="font-size:18px">3. Poster QR untuk dicetak</h1>
+<canvas id="cv" width="600" height="780"></canvas><br>
+<a class="btn sm" id="dl" style="display:inline-block;margin-top:10px;text-decoration:none;text-align:center">Unduh poster (PNG)</a>
+</div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+var $=function(x){return document.getElementById(x)};
+function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
+function q(s){return "'"+s.replace(/'/g,"''")+"'"}
+$("gen").onclick=function(){
+var kode=slug($("kode").value),nama=$("nama").value.trim();
+var bs=$("br").value.split("\n").map(function(x){return x.trim()}).filter(Boolean);
+if(!kode){alert("Isi kode pulau dulu.");return}
+if(!$("ada").checked&&!nama){alert("Isi nama pulau dulu.");return}
+var sql="";
+if(!$("ada").checked)sql+="insert into pulau (id, nama) values ("+q(kode)+", "+q(nama)+") on conflict (id) do nothing;\n\ninsert into pin_akses (kunci, pin) values ("+q(kode)+", lpad(floor(random()*1000000)::int::text, 6, '0')) on conflict (kunci) do nothing;\n\n";
+if(bs.length)sql+="insert into brand (id, nama, pulau_id) values\n"+bs.map(function(b){return " ("+q(kode+"-"+slug(b))+", "+q(b)+", "+q(kode)+")"}).join(",\n")+"\non conflict (id) do nothing;\n";
+$("sql").textContent=sql||"(tidak ada yang ditambahkan)";
+var base=location.origin+location.pathname.replace(/[^\/]*$/,"");
+var u1=base+"?pulau="+kode,u2=base+"staff.html?pulau="+kode;
+$("l1").textContent=u1;$("l1").href=u1;$("l2").textContent=u2;$("l2").href=u2;
+var qr=qrcode(0,"M");qr.addData(u1);qr.make();
+var cv=$("cv"),c=cv.getContext("2d");
+c.fillStyle="#fff";c.fillRect(0,0,600,780);
+c.fillStyle="#0b5cff";c.fillRect(0,0,600,120);
+c.fillStyle="#fff";c.textAlign="center";c.font="bold 44px sans-serif";c.fillText("Butuh bantuan?",300,60);
+c.font="24px sans-serif";c.fillText("Scan, karyawan kami segera datang",300,98);
+var n=qr.getModuleCount(),sz=440,m=Math.floor(sz/n),off=Math.floor((600-m*n)/2);
+c.fillStyle="#000";
+for(var r=0;r<n;r++)for(var k=0;k<n;k++)if(qr.isDark(r,k))c.fillRect(off+k*m,160+r*m,m,m);
+c.fillStyle="#14213d";c.font="bold 34px sans-serif";c.fillText(nama||kode,300,700);
+c.fillStyle="#667085";c.font="20px sans-serif";c.fillText("Pilih brand, lalu tekan Panggil Karyawan",300,740);
+$("dl").href=cv.toDataURL("image/png");$("dl").download="qr-"+kode+".png";
+$("out").classList.remove("hide");$("out").scrollIntoView({behavior:"smooth"})};
+$("cp").onclick=function(){navigator.clipboard.writeText($("sql").textContent).then(function(){$("cp").textContent="Tersalin ✓"})};
+</script></body></html>

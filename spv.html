@@ -9,8 +9,17 @@
 <meta name="theme-color" content="#ea0029">
 <link rel="stylesheet" href="style.css">
 <style>.k{font-size:28px;font-weight:700;margin:0}.red{background:color-mix(in srgb,#dc2626 16%,var(--card));color:#dc2626}
-h2{font-size:18px;margin:18px 0 8px}select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit;margin-bottom:8px}</style>
+h2{font-size:18px;margin:18px 0 8px}select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit;margin-bottom:8px}
+details{margin-bottom:10px}summary{font-weight:700;padding:10px 0}</style>
 </head><body><main>
+<div id="gate" class="hide">
+<h1>ASK MATAHARI SKA · SPV</h1>
+<p class="s">Masukkan PIN SPV.</p>
+<input id="pin" type="password" inputmode="numeric" maxlength="6" placeholder="PIN 6 angka" autocomplete="off">
+<button class="btn" id="masuk">Masuk</button>
+<p class="s" id="ge" style="margin-top:10px"></p>
+</div>
+<div id="app" class="hide">
 <h1>ASK MATAHARI SKA · Monitor SPV</h1>
 <input id="me" placeholder="Nama SPV (contoh: Budi)" style="margin-bottom:8px">
 <select id="pl"></select>
@@ -29,6 +38,9 @@ h2{font-size:18px;margin:18px 0 8px}select{width:100%;padding:12px;border-radius
 <h2>Penilaian karyawan</h2><div id="kar"></div>
 <h2>Per brand</h2><div class="card" id="brd"></div>
 <h2>Riwayat terbaru</h2><div id="his"></div>
+<h2>Karyawan dengan notifikasi aktif</h2><div id="aktif"></div>
+<p class="s" id="upd" style="font-size:13px;margin-top:14px"></p>
+</div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
@@ -37,65 +49,76 @@ h2{font-size:18px;margin:18px 0 8px}select{width:100%;padding:12px;border-radius
 var CEPAT=1,LAMBAT=3; // batas menit penilaian
 var db=supabase.createClient(CFG.url,CFG.key);
 var $=function(x){return document.getElementById(x)};
-var sel=localStorage.getItem("spv_pulau")||"all",per=localStorage.getItem("spv_per")||"0",brands={},pulaus={};
+var pin=localStorage.getItem("spv_pin")||"",sel=localStorage.getItem("spv_pulau")||"all",per=localStorage.getItem("spv_per")||"0";
+var brands={},pulaus={},ready=false,ch=null,iv=null,lastLoad=0;
 $("me").value=localStorage.getItem("spv_nama")||"";
-function info(){return {nama:$("me").value.trim()||"SPV",peran:"spv",pulau:sel==="all"?null:sel,brand:null}}
+function info(){return {nama:$("me").value.trim()||"SPV",peran:"spv",pulau:sel==="all"?null:sel,brand:null,pin:pin}}
 $("me").onchange=function(){localStorage.setItem("spv_nama",$("me").value);segarkanPush(db,info())};
 function mn(a,b){return (new Date(b)-new Date(a))/60000}
 function f(n){return n.toFixed(1).replace(".",",")}
-function avg(a){return a.length?a.reduce(function(x,y){return x+y},0)/a.length:null}
 function nilai(m){return m<=CEPAT?["Cepat","tag g"]:m<=LAMBAT?["Normal","tag"]:["Lambat","tag red"]}
-function resp(x){return x.diambil_pada?mn(x.dibuat,x.diambil_pada):mn(x.dibuat,new Date())}
 function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e}
-function baris(a,b,tg,sub){var c=el("div","card"),t=el("div","row");t.appendChild(el("b","",a));if(tg)t.appendChild(tg);c.appendChild(t);
+function baris(a,tg,sub){var c=el("div","card"),t=el("div","row");t.appendChild(el("b","",a));if(tg)t.appendChild(tg);c.appendChild(t);
 if(sub){var s=el("div","s",sub);s.style.margin="4px 0 0";c.appendChild(s)}return c}
 function tag(m){var n=nilai(m);return el("span",n[1],n[0])}
+function kosong(t){return el("div","card s",t)}
 async function load(){
-var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-(+per));
-var q=db.from("permintaan").select("*").gte("dibuat",d.toISOString()).order("dibuat",{ascending:false}).limit(1000);
-if(sel!=="all")q=q.eq("pulau_id",sel);
-var all=(await q).data||[];
-var w=all.filter(function(x){return x.status==="menunggu"}),p=all.filter(function(x){return x.status==="diambil"}),s=all.filter(function(x){return x.status==="selesai"});
-var rs=all.filter(function(x){return x.diambil_pada}).map(resp);
-var lb=all.filter(function(x){return resp(x)>LAMBAT}).length;
-$("k1").textContent=w.length;$("k2").textContent=p.length;$("k3").textContent=s.length;
-$("k4").textContent=rs.length?f(avg(rs))+" mnt":"-";
-$("k5").textContent=rs.length?Math.round(rs.filter(function(m){return m<=CEPAT}).length/rs.length*100)+"%":"-";
-$("k6").textContent=lb;
-var A=$("act");A.innerHTML="";var live=w.concat(p);
-if(!live.length)A.appendChild(el("div","card s","Tidak ada permintaan aktif. 👍"));
-live.forEach(function(x){var m=Math.floor(mn(x.dibuat,new Date()));
+lastLoad=Date.now();
+var r=await db.rpc("ringkasan_spv",{p_pulau:sel==="all"?null:sel,p_hari:+per,p_pin:pin});
+var d=r.data;if(!d){if(r.error)return;$("app").classList.add("hide");$("gate").classList.remove("hide");return}
+$("k1").textContent=d.menunggu;$("k2").textContent=d.diproses;$("k3").textContent=d.selesai;
+$("k4").textContent=d.rata!=null?f(d.rata)+" mnt":"-";
+$("k5").textContent=d.n_resp?Math.round(d.cepat/d.n_resp*100)+"%":"-";$("k6").textContent=d.lambat;
+var A=$("act");A.innerHTML="";
+if(!d.aktif.length)A.appendChild(kosong("Tidak ada permintaan aktif. 👍"));
+d.aktif.forEach(function(x){var m=Math.floor(mn(x.dibuat,new Date()));
 var g=x.status==="menunggu"?el("span","tag"+(m>=LAMBAT?" red":""),"Menunggu "+m+" mnt"):el("span","tag g",(x.diambil_oleh||"")+" · "+m+" mnt");
-A.appendChild(baris((brands[x.brand_id]||"Semua brand")+" · "+x.kebutuhan,0,g,(pulaus[x.pulau_id]||x.pulau_id)+(x.nama?" · "+x.nama:"")+(x.catatan?" · "+x.catatan:"")))});
-var K={};all.filter(function(x){return x.diambil_oleh}).forEach(function(x){(K[x.diambil_oleh]=K[x.diambil_oleh]||[]).push(x)});
-var KR=$("kar");KR.innerHTML="";var ks=Object.keys(K);
-if(!ks.length)KR.appendChild(el("div","card s","Belum ada data."));
-ks.sort(function(a,b){return avg(K[a].map(resp))-avg(K[b].map(resp))}).forEach(function(n){
-var r=K[n].map(resp),a=avg(r),lt=r.filter(function(m){return m>LAMBAT}).length;
-KR.appendChild(baris(n,0,tag(a),K[n].length+" layanan · rata-rata "+f(a)+" mnt · "+Math.round(r.filter(function(m){return m<=CEPAT}).length/r.length*100)+"% cepat · "+lt+" lambat"))});
-var B={};all.forEach(function(x){var k=brands[x.brand_id]||"Semua brand";(B[k]=B[k]||[]).push(x)});
-var BR=$("brd");BR.innerHTML="";
-Object.keys(B).sort(function(a,b){return B[b].length-B[a].length}).forEach(function(k){var r=B[k].map(resp);
-var rw=el("div","row");rw.style.padding="6px 0";rw.appendChild(el("span","",k));rw.appendChild(el("b","",B[k].length+" · "+f(avg(r))+" mnt"));BR.appendChild(rw)});
-if(!all.length)BR.appendChild(el("span","s","Belum ada data."));
-var H=$("his");H.innerHTML="";
-all.filter(function(x){return x.status!=="menunggu"}).slice(0,15).forEach(function(x){var m=resp(x);
+A.appendChild(baris((brands[x.brand_id]||"Semua brand")+" · "+x.kebutuhan,g,(pulaus[x.pulau_id]||x.pulau_id)+(x.nama?" · "+x.nama:"")+(x.catatan?" · "+x.catatan:"")))});
+var K=$("kar");K.innerHTML="";if(!d.karyawan.length)K.appendChild(kosong("Belum ada data."));
+d.karyawan.forEach(function(k){K.appendChild(baris(k.nama,tag(k.rata),k.n+" layanan · rata-rata "+f(k.rata)+" mnt · "+Math.round(k.cepat/k.n*100)+"% cepat · "+k.lambat+" lambat"))});
+var B=$("brd");B.innerHTML="";if(!d.brand.length)B.appendChild(el("span","s","Belum ada data."));
+d.brand.forEach(function(b){var rw=el("div","row");rw.style.padding="6px 0";rw.appendChild(el("span","",b.brand));rw.appendChild(el("b","",b.n+" · "+f(b.rata)+" mnt"));B.appendChild(rw)});
+var H=$("his");H.innerHTML="";if(!d.riwayat.length)H.appendChild(kosong("Belum ada riwayat."));
+d.riwayat.forEach(function(x){var m=x.diambil_pada?mn(x.dibuat,x.diambil_pada):null;
 var t=new Date(x.dibuat).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
-var sub=t+" · "+(x.diambil_oleh||"-")+" · respons "+f(m)+" mnt"+(x.selesai_pada&&x.diambil_pada?" · layanan "+f(mn(x.diambil_pada,x.selesai_pada))+" mnt":"");
-H.appendChild(baris((brands[x.brand_id]||"Semua brand")+" · "+x.kebutuhan,0,tag(m),sub))})}
-$("notif").onclick=async function(){try{await aktifkanPush(db,info());$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua pulau":pulaus[sel])+")."}catch(e){$("nst").textContent="⚠️ "+e.message}};
+H.appendChild(baris((brands[x.brand_id]||"Semua brand")+" · "+x.kebutuhan,m!=null?tag(m):null,t+" · "+(x.diambil_oleh||"-")+(m!=null?" · respons "+f(m)+" mnt":"")+(x.selesai_pada&&x.diambil_pada?" · layanan "+f(mn(x.diambil_pada,x.selesai_pada))+" mnt":"")))});
+$("upd").textContent="Diperbarui "+new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})+(per==="0"?" · otomatis tiap 1 menit":" · muat ulang halaman untuk data terbaru")}
+async function loadAktif(){
+var r=await db.rpc("daftar_aktif",{p_pulau:sel==="all"?null:sel,p_pin:pin});
+var L=$("aktif");L.innerHTML="";if(!r.data)return;
+var ids=sel==="all"?Object.keys(pulaus):[sel];
+ids.forEach(function(id){
+var st=r.data.filter(function(x){return x.peran==="staff"&&x.pulau_id===id});
+var sp=r.data.filter(function(x){return x.peran==="spv"&&(x.pulau_id===id||!x.pulau_id)});
+var dt=el("details"),sm=el("summary","",(pulaus[id]||id)+" · "+st.length+" karyawan"+(st.length?"":" ⚠️ belum ada")+" · "+sp.length+" SPV");
+dt.appendChild(sm);
+dt.appendChild(el("div","s",st.map(function(x){return x.nama+" ("+(brands[x.brand_id]||"Semua brand")+")"}).join(", ")||"Belum ada karyawan yang mendaftar."));
+if(sp.length)dt.appendChild(el("div","s","SPV: "+sp.map(function(x){return x.nama}).join(", ")));
+L.appendChild(dt)})}
+$("notif").onclick=async function(){try{await aktifkanPush(db,info());$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua pulau":pulaus[sel])+").";loadAktif()}catch(e){$("nst").textContent="⚠️ "+e.message}};
+function conn(){
+if(per!=="0")return;
+if(!ch){var o={event:"*",schema:"public",table:"permintaan"};if(sel!=="all")o.filter="pulau_id=eq."+sel;
+ch=db.channel("spv").on("postgres_changes",o,function(){if(Date.now()-lastLoad>15000)load()}).subscribe()}
+if(!iv)iv=setInterval(load,60000)}
+function disc(){if(ch){db.removeChannel(ch);ch=null}if(iv){clearInterval(iv);iv=null}}
+document.addEventListener("visibilitychange",function(){if(!ready)return;if(document.visibilityState==="visible"){load();conn()}else disc()});
+function ulang(){disc();load();loadAktif();if(document.visibilityState==="visible")conn()}
 async function init(){
+ready=true;
 var pl=await db.from("pulau").select("id,nama").order("id");
 var o0=el("option","","Semua pulau");o0.value="all";$("pl").appendChild(o0);
 (pl.data||[]).forEach(function(x){pulaus[x.id]=x.nama;var o=el("option","",x.nama);o.value=x.id;$("pl").appendChild(o)});
 $("pl").value=sel;$("pr").value=per;
-$("pl").onchange=function(){sel=$("pl").value;localStorage.setItem("spv_pulau",sel);load();segarkanPush(db,info())};
-$("pr").onchange=function(){per=$("pr").value;localStorage.setItem("spv_per",per);load()};
+$("pl").onchange=function(){sel=$("pl").value;localStorage.setItem("spv_pulau",sel);ulang();segarkanPush(db,info())};
+$("pr").onchange=function(){per=$("pr").value;localStorage.setItem("spv_per",per);ulang()};
 var b=await db.from("brand").select("id,nama");(b.data||[]).forEach(function(x){brands[x.id]=x.nama});
 if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$("nst").textContent="iPhone: tekan Bagikan lalu Add to Home Screen, kemudian buka dari ikonnya.";
 else if(await segarkanPush(db,info()))$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua pulau":pulaus[sel])+").";
-await load();
-db.channel("spv").on("postgres_changes",{event:"*",schema:"public",table:"permintaan"},load).subscribe();
-setInterval(load,10000)}
-init();
+ulang()}
+async function cek(p){var r=await db.rpc("cek_pin",{p_kunci:"spv",p_pin:p});return r.data===true}
+function masuk(){$("gate").classList.add("hide");$("app").classList.remove("hide");if(ready)ulang();else init()}
+$("masuk").onclick=async function(){var p=$("pin").value.trim();
+if(await cek(p)){pin=p;localStorage.setItem("spv_pin",p);masuk()}else $("ge").textContent="PIN salah."};
+(async function(){if(pin&&await cek(pin))masuk();else $("gate").classList.remove("hide")})();
 </script></body></html>

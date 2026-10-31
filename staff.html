@@ -10,13 +10,22 @@
 <meta name="theme-color" content="#ea0029">
 <link rel="stylesheet" href="style.css">
 </head><body><main>
+<div id="gate" class="hide">
+<h1>ASK MATAHARI SKA</h1>
+<p class="s" id="gp">Masukkan PIN pulau dari SPV Anda.</p>
+<input id="pin" type="password" inputmode="numeric" maxlength="6" placeholder="PIN 6 angka" autocomplete="off">
+<button class="btn" id="masuk">Masuk</button>
+<p class="s" id="ge" style="margin-top:10px"></p>
+</div>
+<div id="app" class="hide">
 <h1>ASK MATAHARI SKA · Karyawan</h1>
 <select id="pl" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit;margin-bottom:10px"></select>
-<input id="me" placeholder="Nama Anda (contoh: Rina)">
+<input id="me" placeholder="Nama-NIK (contoh: Rina-1023)">
 <div class="chips" id="chips" style="margin-top:12px"></div>
 <button class="btn" id="notif" style="margin:0 0 6px">🔔 Aktifkan notifikasi</button>
 <p class="s" id="nst" style="font-size:14px">Brand yang dipilih di atas menentukan notifikasi yang Anda terima.</p>
 <div id="list"></div>
+</div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
@@ -26,9 +35,9 @@ var db=supabase.createClient(CFG.url,CFG.key);
 var $=function(x){return document.getElementById(x)};
 var pulau=new URLSearchParams(location.search).get("pulau")||localStorage.getItem("pulau")||"p1";
 localStorage.setItem("pulau",pulau);
-var lastBeep=0,brands={},filter=localStorage.getItem("brand_"+pulau)||"all";
+var pin=localStorage.getItem("pin_"+pulau)||"",ready=false,ch=null,iv=null,lastBeep=0,brands={},filter=localStorage.getItem("brand_"+pulau)||"all";
 $("me").value=localStorage.getItem("nama")||"";
-function info(){return {nama:$("me").value.trim(),peran:"staff",pulau:pulau,brand:filter==="all"?null:filter}}
+function info(){return {nama:$("me").value.trim(),peran:"staff",pulau:pulau,brand:filter==="all"?null:filter,pin:pin}}
 $("me").onchange=function(){localStorage.setItem("nama",$("me").value);segarkanPush(db,info())};
 function beep(){try{navigator.vibrate&&navigator.vibrate([300,100,300]);var c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator();o.connect(c.destination);o.frequency.value=880;o.start();setTimeout(function(){o.stop()},350)}catch(e){}}
 function mnt(t){var m=Math.floor((Date.now()-new Date(t))/60000);return m<1?"baru saja":m+" menit lalu"}
@@ -42,7 +51,7 @@ localStorage.setItem("nama",i.nama);
 try{await aktifkanPush(db,i);$("nst").textContent="✅ Notifikasi aktif untuk "+(i.brand?brands[i.brand]:"semua brand")+".";}
 catch(e){$("nst").textContent="⚠️ "+e.message}};
 async function load(){
-var r=await db.from("permintaan").select("*").eq("pulau_id",pulau).in("status",["menunggu","diambil"]).order("dibuat",{ascending:false});
+var r=await db.from("permintaan").select("id,brand_id,kebutuhan,catatan,nama,status,diambil_oleh,dibuat").eq("pulau_id",pulau).in("status",["menunggu","diambil"]).order("dibuat",{ascending:false}).limit(50);
 var rows=(r.data||[]).filter(function(x){return filter==="all"||!x.brand_id||x.brand_id===filter});
 if(rows.some(function(x){return x.status==="menunggu"})&&Date.now()-lastBeep>20000){lastBeep=Date.now();beep()}
 var L=$("list");L.innerHTML="";
@@ -57,12 +66,19 @@ var d=document.createElement("div");d.className="s";d.style.margin="4px 0 10px";
 d.textContent=mnt(x.dibuat)+(x.nama?" · "+x.nama:"")+(x.catatan?" · "+x.catatan:"");
 c.appendChild(t);c.appendChild(d);
 var btn=document.createElement("button");
-if(x.status==="menunggu"){btn.className="btn sm";btn.textContent="Ambil";btn.onclick=function(){
+if(x.status==="menunggu"){btn.className="btn sm";btn.textContent="Ambil";btn.onclick=async function(){
 var n=$("me").value.trim();if(!n){alert("Isi nama Anda dulu.");return}
-db.from("permintaan").update({status:"diambil",diambil_oleh:n,diambil_pada:new Date().toISOString()}).eq("id",x.id).eq("status","menunggu").then(load)}}
-else{btn.className="btn sm ok";btn.textContent="Selesai";btn.onclick=function(){db.from("permintaan").update({status:"selesai",selesai_pada:new Date().toISOString()}).eq("id",x.id).then(load)}}
+var r=await db.rpc("ambil_permintaan",{p_id:x.id,p_nama:n,p_pin:pin});
+if(r.data!==true)alert("Sudah diambil karyawan lain.");load()}}
+else{btn.className="btn sm ok";btn.textContent="Selesai";btn.onclick=async function(){await db.rpc("selesai_permintaan",{p_id:x.id,p_pin:pin});load()}}
 c.appendChild(btn);L.appendChild(c)})}
+function conn(){
+if(!ch)ch=db.channel("staff-"+pulau).on("postgres_changes",{event:"*",schema:"public",table:"permintaan",filter:"pulau_id=eq."+pulau},function(m){if(m.eventType==="INSERT")beep();load()}).subscribe();
+if(!iv)iv=setInterval(load,30000)}
+function disc(){if(ch){db.removeChannel(ch);ch=null}if(iv){clearInterval(iv);iv=null}}
+document.addEventListener("visibilitychange",function(){if(!ready)return;if(document.visibilityState==="visible"){load();conn()}else disc()});
 async function init(){
+ready=true;
 var pl=await db.from("pulau").select("id,nama").order("id");
 (pl.data||[]).forEach(function(p){var o=document.createElement("option");o.value=p.id;o.textContent=p.nama;if(p.id===pulau)o.selected=true;$("pl").appendChild(o)});
 $("pl").onchange=function(){localStorage.setItem("pulau",$("pl").value);location.href="staff.html?pulau="+$("pl").value};
@@ -70,7 +86,13 @@ var b=await db.from("brand").select("id,nama").eq("pulau_id",pulau).order("nama"
 (b.data||[]).forEach(function(x){brands[x.id]=x.nama});chips();await load();
 if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$("nst").textContent="iPhone: tekan tombol Bagikan lalu Add to Home Screen, kemudian buka aplikasi dari ikonnya di layar utama.";
 else if(await segarkanPush(db,info()))$("nst").textContent="✅ Notifikasi aktif untuk "+(filter==="all"?"semua brand":brands[filter])+".";
-db.channel("staff-"+pulau).on("postgres_changes",{event:"*",schema:"public",table:"permintaan",filter:"pulau_id=eq."+pulau},function(m){if(m.eventType==="INSERT")beep();load()}).subscribe();
-setInterval(load,10000)}
-init();
+if(document.visibilityState==="visible")conn()}
+async function cek(p){var r=await db.rpc("cek_pin",{p_kunci:pulau,p_pin:p});return r.data===true}
+function masuk(){$("gate").classList.add("hide");$("app").classList.remove("hide");init()}
+$("masuk").onclick=async function(){var p=$("pin").value.trim();
+if(await cek(p)){pin=p;localStorage.setItem("pin_"+pulau,p);masuk()}else $("ge").textContent="PIN salah. Coba lagi atau tanya SPV."};
+(async function(){
+var p=await db.from("pulau").select("nama").eq("id",pulau).maybeSingle();
+$("gp").textContent=p.data?"Masukkan PIN untuk "+p.data.nama+". PIN diberikan oleh SPV.":"Pulau tidak ditemukan. Cek kembali link Anda.";
+if(pin&&await cek(pin))masuk();else $("gate").classList.remove("hide")})();
 </script></body></html>
