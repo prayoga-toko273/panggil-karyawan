@@ -2,14 +2,14 @@
 <html lang="id"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Karyawan – Panggil Karyawan</title>
+<title>ASK SKA · Karyawan</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0b5cff">
+<meta name="theme-color" content="#ea0029">
 <link rel="stylesheet" href="style.css">
 </head><body><main>
-<h1>Karyawan</h1>
+<h1>ASK SKA · Karyawan</h1>
 <select id="pl" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit;margin-bottom:10px"></select>
 <input id="me" placeholder="Nama Anda (contoh: Rina)">
 <div class="chips" id="chips" style="margin-top:12px"></div>
@@ -25,7 +25,7 @@ var db=supabase.createClient(CFG.url,CFG.key);
 var $=function(x){return document.getElementById(x)};
 var pulau=new URLSearchParams(location.search).get("pulau")||localStorage.getItem("pulau")||"p1";
 localStorage.setItem("pulau",pulau);
-var brands={},filter=localStorage.getItem("brand_"+pulau)||"all";
+var lastBeep=0,brands={},filter=localStorage.getItem("brand_"+pulau)||"all";
 $("me").value=localStorage.getItem("nama")||"";
 function info(){return {nama:$("me").value.trim(),peran:"staff",pulau:pulau,brand:filter==="all"?null:filter}}
 $("me").onchange=function(){localStorage.setItem("nama",$("me").value);segarkanPush(db,info())};
@@ -43,6 +43,7 @@ catch(e){$("nst").textContent="⚠️ "+e.message}};
 async function load(){
 var r=await db.from("permintaan").select("*").eq("pulau_id",pulau).in("status",["menunggu","diambil"]).order("dibuat",{ascending:false});
 var rows=(r.data||[]).filter(function(x){return filter==="all"||!x.brand_id||x.brand_id===filter});
+if(rows.some(function(x){return x.status==="menunggu"})&&Date.now()-lastBeep>20000){lastBeep=Date.now();beep()}
 var L=$("list");L.innerHTML="";
 if(!rows.length){L.innerHTML='<div class="card s">Belum ada permintaan.</div>';return}
 rows.forEach(function(x){

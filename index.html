@@ -2,28 +2,48 @@
 <html lang="id"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Panggil Karyawan</title>
+<title>ASK SKA</title>
 <link rel="stylesheet" href="style.css">
+<style>
+.hero{background:linear-gradient(135deg,var(--pri),#7aa2ff);color:#fff;border-radius:22px;padding:20px 18px;margin-bottom:16px}
+.hero h1{font-size:24px;margin:0 0 6px}.hero p{margin:0;opacity:.92}
+.loc{display:inline-block;background:rgba(255,255,255,.22);border-radius:99px;padding:3px 12px;font-size:14px;margin-bottom:10px;font-weight:600}
+.sec{display:flex;align-items:center;gap:8px;font-weight:700;margin:18px 0 10px}
+.num{width:24px;height:24px;border-radius:50%;background:var(--pri);color:var(--onpri);display:grid;place-items:center;font-size:13px}
+.bt{display:flex;align-items:center;gap:10px;padding:10px;text-align:left}
+.av{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700}
+.nd{font-size:30px;display:block;margin-bottom:4px}
+.opt{transition:transform .1s}.opt:active{transform:scale(.96)}
+.steps{display:flex;justify-content:space-between;margin:18px 0 4px}
+.stp{flex:1;text-align:center;font-size:13px;color:var(--mut)}
+.stp i{display:grid;place-items:center;width:30px;height:30px;margin:0 auto 4px;border-radius:50%;background:var(--bd);font-style:normal}
+.stp.on{color:var(--tx);font-weight:700}.stp.on i{background:var(--pri);color:var(--onpri)}
+.stp.done i{background:var(--ok);color:#fff}
+@keyframes p{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+.pulse{animation:p 1.4s infinite}
+</style>
 </head><body><main>
 <div id="form">
-<h1>Butuh bantuan? 👋</h1>
-<p class="s" id="sub">Memuat…</p>
-<label>1. Pilih brand</label>
+<div class="hero"><img src="icon-192.png" alt="" style="width:46px;height:46px;border-radius:12px;float:right"><span class="loc" id="loc">📍 Memuat…</span><h1>Butuh bantuan? 👋</h1><p>Pilih brand dan bantuan yang dibutuhkan. Karyawan kami segera datang.</p></div>
+<div class="sec"><span class="num">1</span>Pilih brand</div>
 <div class="grid" id="brands"></div>
-<label>2. Butuh bantuan apa?</label>
+<div class="sec"><span class="num">2</span>Butuh bantuan apa?</div>
 <div class="grid" id="needs">
-<button class="opt on">Cek size</button><button class="opt">Info promo</button>
-<button class="opt">Cari barang</button><button class="opt">Ruang ganti</button>
+<button class="opt on" data-n="Cek size"><span class="nd">📏</span>Cek size</button>
+<button class="opt" data-n="Info promo"><span class="nd">🏷️</span>Info promo</button>
+<button class="opt" data-n="Cari barang"><span class="nd">🔍</span>Cari barang</button>
+<button class="opt" data-n="Ruang ganti"><span class="nd">🚪</span>Ruang ganti</button>
+<button class="opt" data-n="Minta rekomendasi"><span class="nd">✨</span>Rekomendasi</button>
+<button class="opt" data-n="Bantuan lainnya"><span class="nd">💬</span>Lainnya</button>
 </div>
-<label for="note">Detail (opsional)</label>
+<div class="sec"><span class="num">3</span>Detail (boleh dikosongkan)</div>
 <input id="note" placeholder="Contoh: kemeja biru size L">
-<label for="nm">Nama atau ciri Anda (opsional)</label>
-<input id="nm" placeholder="Contoh: Ibu baju merah">
-<button class="btn" id="send">Panggil Karyawan</button>
+<input id="nm" placeholder="Ciri Anda, contoh: Ibu baju merah" style="margin-top:8px">
+<button class="btn" id="send">🙋 Panggil Karyawan</button>
 </div>
 <div id="status" class="hide">
-<div class="card big"><div class="e" id="se">⏳</div><h1 id="st">Permintaan terkirim</h1>
-<p class="s" id="sd">Mohon tunggu sebentar, karyawan sedang dihubungi.</p></div>
+<div class="card big"><div class="e pulse" id="se">⏳</div><h1 id="st">Permintaan terkirim</h1><p class="s" id="sd"></p>
+<div class="steps"><div class="stp done" id="s1"><i>✓</i>Terkirim</div><div class="stp" id="s2"><i>2</i>Diambil</div><div class="stp" id="s3"><i>3</i>Selesai</div></div></div>
 <button class="btn" id="again" style="background:var(--card);color:var(--tx);border:1px solid var(--bd)">Buat permintaan baru</button>
 </div>
 </main>
@@ -35,20 +55,26 @@ var $=function(x){return document.getElementById(x)};
 var pulau=new URLSearchParams(location.search).get("pulau")||"p1";
 var brand=null,picked=false,need="Cek size",poll=null;
 document.querySelectorAll("#needs .opt").forEach(function(b){b.onclick=function(){
-document.querySelectorAll("#needs .opt").forEach(function(o){o.classList.remove("on")});b.classList.add("on");need=b.textContent}});
-function addBrand(id,nama){var e=document.createElement("button");e.className="opt";e.textContent=nama;
+document.querySelectorAll("#needs .opt").forEach(function(o){o.classList.remove("on")});b.classList.add("on");need=b.dataset.n}});
+function warna(s){var h=0;for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360;return "hsl("+h+",55%,45%)"}
+function addBrand(id,nama,ico){var e=document.createElement("button");e.className="opt bt";
+var a=document.createElement("span");a.className="av";a.style.background=ico?"var(--mut)":warna(nama);a.textContent=ico||nama.charAt(0).toUpperCase();
+var n=document.createElement("span");n.textContent=nama;e.appendChild(a);e.appendChild(n);
 e.onclick=function(){brand=id;picked=true;[].forEach.call($("brands").children,function(o){o.classList.remove("on")});e.classList.add("on")};
 $("brands").appendChild(e)}
 async function init(){
 var p=await db.from("pulau").select("nama").eq("id",pulau).maybeSingle();
-if(!p.data){$("sub").textContent="Area tidak ditemukan. Silakan scan ulang QR.";return}
-$("sub").textContent="Area: "+p.data.nama+". Karyawan kami siap membantu.";
+if(!p.data){$("loc").textContent="📍 Area tidak ditemukan";return}
+$("loc").textContent="📍 "+p.data.nama;
 var b=await db.from("brand").select("id,nama").eq("pulau_id",pulau).order("nama");
-(b.data||[]).forEach(function(x){addBrand(x.id,x.nama)});addBrand(null,"Tidak tahu / semua")}
+(b.data||[]).forEach(function(x){addBrand(x.id,x.nama)});addBrand(null,"Tidak tahu / semua","?")}
 function show(r){var s=r.status;
-$("se").textContent=s==="menunggu"?"⏳":s==="diambil"?"🏃":"✅";
-$("st").textContent=s==="menunggu"?"Permintaan terkirim":s==="diambil"?"Karyawan sedang menuju Anda":"Terima kasih!";
-$("sd").textContent=s==="menunggu"?"Mohon tunggu sebentar, karyawan sedang dihubungi.":s==="diambil"?((r.diambil_oleh||"Karyawan")+" akan segera tiba."):"Semoga bantuan kami berguna.";
+$("se").textContent=s==="menunggu"?"⏳":s==="diambil"?"🏃":"✅";$("se").className="e"+(s==="selesai"?"":" pulse");
+$("st").textContent=s==="menunggu"?"Permintaan terkirim":s==="diambil"?"Karyawan menuju Anda":"Terima kasih!";
+$("sd").textContent=s==="menunggu"?"Karyawan sedang dihubungi. Mohon tunggu sebentar.":s==="diambil"?((r.diambil_oleh||"Karyawan")+" akan segera tiba."):"Semoga bantuan kami berguna.";
+$("s2").className="stp"+(s==="menunggu"?"":" done");$("s2").firstChild.textContent=s==="menunggu"?"2":"✓";
+$("s3").className="stp"+(s==="selesai"?" done":"");$("s3").firstChild.textContent=s==="selesai"?"✓":"3";
+if(s==="menunggu")$("s2").className="stp on";
 if(s==="selesai"&&poll){clearInterval(poll);poll=null}}
 $("send").onclick=async function(){
 if(!picked){alert("Pilih brand dulu ya.");return}
