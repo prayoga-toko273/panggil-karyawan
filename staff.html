@@ -10,6 +10,12 @@
 <meta name="theme-color" content="#ea0029">
 <link rel="stylesheet" href="style.css">
 </head><body><main>
+<div id="pick" class="hide">
+<h1>ASK MATAHARI SKA</h1>
+<p class="s">Pilih pulau tempat Anda bertugas.</p>
+<select id="pk" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit"></select>
+<button class="btn" id="lanjut">Lanjut</button>
+</div>
 <div id="gate" class="hide">
 <h1>ASK MATAHARI SKA</h1>
 <p class="s" id="gp">Masukkan PIN pulau dari SPV Anda.</p>
@@ -33,8 +39,8 @@
 <script>
 var db=supabase.createClient(CFG.url,CFG.key);
 var $=function(x){return document.getElementById(x)};
-var pulau=new URLSearchParams(location.search).get("pulau")||localStorage.getItem("pulau")||"p1";
-localStorage.setItem("pulau",pulau);
+var pulau=new URLSearchParams(location.search).get("pulau")||localStorage.getItem("pulau")||null;
+if(pulau)localStorage.setItem("pulau",pulau);
 var pin=localStorage.getItem("pin_"+pulau)||"",ready=false,ch=null,iv=null,lastBeep=0,brands={},filter=localStorage.getItem("brand_"+pulau)||"all";
 $("me").value=localStorage.getItem("nama")||"";
 function info(){return {nama:$("me").value.trim(),peran:"staff",pulau:pulau,brand:filter==="all"?null:filter,pin:pin}}
@@ -80,7 +86,7 @@ document.addEventListener("visibilitychange",function(){if(!ready)return;if(docu
 async function init(){
 ready=true;
 var pl=await db.from("pulau").select("id,nama").order("id");
-(pl.data||[]).forEach(function(p){var o=document.createElement("option");o.value=p.id;o.textContent=p.nama;if(p.id===pulau)o.selected=true;$("pl").appendChild(o)});
+(pl.data||[]).sort(function(a,b){return (parseInt(a.id.slice(1))||0)-(parseInt(b.id.slice(1))||0)}).forEach(function(p){var o=document.createElement("option");o.value=p.id;o.textContent=p.nama;if(p.id===pulau)o.selected=true;$("pl").appendChild(o)});
 $("pl").onchange=function(){localStorage.setItem("pulau",$("pl").value);location.href="staff.html?pulau="+$("pl").value};
 var b=await db.from("brand").select("id,nama").eq("pulau_id",pulau).order("nama");
 (b.data||[]).forEach(function(x){brands[x.id]=x.nama});chips();await load();
@@ -91,7 +97,12 @@ async function cek(p){var r=await db.rpc("cek_pin",{p_kunci:pulau,p_pin:p});retu
 function masuk(){$("gate").classList.add("hide");$("app").classList.remove("hide");init()}
 $("masuk").onclick=async function(){var p=$("pin").value.trim();
 if(await cek(p)){pin=p;localStorage.setItem("pin_"+pulau,p);masuk()}else $("ge").textContent="PIN salah. Coba lagi atau tanya SPV."};
-(async function(){
+if(!pulau){(async function(){
+var pl=await db.from("pulau").select("id,nama");
+(pl.data||[]).sort(function(a,b){return (parseInt(a.id.slice(1))||0)-(parseInt(b.id.slice(1))||0)}).forEach(function(p){var o=document.createElement("option");o.value=p.id;o.textContent=p.nama;$("pk").appendChild(o)});
+$("pick").classList.remove("hide");
+$("lanjut").onclick=function(){localStorage.setItem("pulau",$("pk").value);location.href="staff.html?pulau="+$("pk").value}})()}
+else (async function(){
 var p=await db.from("pulau").select("nama").eq("id",pulau).maybeSingle();
 $("gp").textContent=p.data?"Masukkan PIN untuk "+p.data.nama+". PIN diberikan oleh SPV.":"Pulau tidak ditemukan. Cek kembali link Anda.";
 if(pin&&await cek(pin))masuk();else $("gate").classList.remove("hide")})();

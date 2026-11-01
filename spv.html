@@ -108,7 +108,7 @@ async function init(){
 ready=true;
 var pl=await db.from("pulau").select("id,nama").order("id");
 var o0=el("option","","Semua pulau");o0.value="all";$("pl").appendChild(o0);
-(pl.data||[]).forEach(function(x){pulaus[x.id]=x.nama;var o=el("option","",x.nama);o.value=x.id;$("pl").appendChild(o)});
+(pl.data||[]).sort(function(a,b){return (parseInt(a.id.slice(1))||0)-(parseInt(b.id.slice(1))||0)}).forEach(function(x){pulaus[x.id]=x.nama;var o=el("option","",x.nama);o.value=x.id;$("pl").appendChild(o)});
 $("pl").value=sel;$("pr").value=per;
 $("pl").onchange=function(){sel=$("pl").value;localStorage.setItem("spv_pulau",sel);ulang();segarkanPush(db,info())};
 $("pr").onchange=function(){per=$("pr").value;localStorage.setItem("spv_per",per);ulang()};
