@@ -14,14 +14,14 @@ details{margin-bottom:10px}summary{font-weight:700;padding:10px 0}</style>
 </head><body><main>
 <div id="gate" class="hide">
 <h1>ASK MATAHARI SKA · SPV</h1>
-<p class="s">Masukkan PIN SPV.</p>
+<p class="s">Masukkan PIN Anda (SPV, Store Manager, atau Asst. Store Manager).</p>
 <input id="pin" type="password" inputmode="numeric" maxlength="6" placeholder="PIN 6 angka" autocomplete="off">
 <button class="btn" id="masuk">Masuk</button>
 <p class="s" id="ge" style="margin-top:10px"></p>
 </div>
 <div id="app" class="hide">
 <h1>ASK MATAHARI SKA · Monitor SPV</h1>
-<input id="me" placeholder="Nama SPV (contoh: Budi)" style="margin-bottom:8px">
+<p class="s" id="hai" style="font-weight:700;margin-bottom:8px"></p>
 <select id="pl"></select>
 <select id="pr"><option value="0">Hari ini</option><option value="7">7 hari terakhir</option><option value="30">30 hari terakhir</option></select>
 <button class="btn" id="notif" style="margin:0 0 6px">🔔 Aktifkan notifikasi SPV</button>
@@ -53,9 +53,8 @@ var db=supabase.createClient(CFG.url,CFG.key);
 var $=function(x){return document.getElementById(x)};
 var pin=localStorage.getItem("spv_pin")||"",sel=localStorage.getItem("spv_world")||"all",per=localStorage.getItem("spv_per")||"0";
 var brands={},worlds={},pulaus={},ready=false,ch=null,iv=null,lastLoad=0;
-$("me").value=localStorage.getItem("spv_nama")||"";
-function info(){return {nama:$("me").value.trim()||"SPV",peran:"spv",world:sel==="all"?null:sel,pin:pin}}
-$("me").onchange=function(){localStorage.setItem("spv_nama",$("me").value);segarkanPush(db,info())};
+var akun=null;
+function info(){return {nama:akun?akun.nama:"SPV",peran:"spv",world:null,pin:pin}}
 function mn(a,b){return (new Date(b)-new Date(a))/60000}
 function f(n){return n.toFixed(1).replace(".",",")}
 function nilai(m){return m<=CEPAT?["Cepat","tag g"]:m<=LAMBAT?["Normal","tag"]:["Lambat","tag red"]}
@@ -94,11 +93,11 @@ var r=await db.rpc("daftar_aktif",{p_world:sel==="all"?null:sel,p_pin:pin});
 var L=$("aktif");L.innerHTML="";if(!r.data)return;
 var ids=sel==="all"?Object.keys(worlds):[sel];
 ids.forEach(function(id){
-var st=r.data.filter(function(x){return x.peran==="staff"&&(x.world_id===id||!x.world_id)});
-var sp=r.data.filter(function(x){return x.peran==="spv"&&(x.world_id===id||!x.world_id)});
-var dt=el("details"),sm=el("summary","",(worlds[id]||id)+" · "+st.length+" karyawan"+(st.length?"":" ⚠️ belum ada")+" · "+sp.length+" SPV");
+var st=r.data.filter(function(x){return x.peran==="staff"&&(!x.world_ids||x.world_ids.indexOf(id)>=0)});
+var sp=[];
+var dt=el("details"),sm=el("summary","",(worlds[id]||id)+" · "+st.length+" karyawan"+(st.length?"":" ⚠️ belum ada"));
 dt.appendChild(sm);
-dt.appendChild(el("div","s",st.map(function(x){return x.nama+(x.world_id?"":" (semua World)")}).join(", ")||"Belum ada karyawan yang mendaftar."));
+dt.appendChild(el("div","s",st.map(function(x){return x.nama+(x.world_ids?"":" (semua World)")}).join(", ")||"Belum ada karyawan yang mendaftar."));
 if(sp.length)dt.appendChild(el("div","s","SPV: "+sp.map(function(x){return x.nama}).join(", ")));
 L.appendChild(dt)})}
 $("notif").onclick=async function(){try{await aktifkanPush(db,info());$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua World":worlds[sel])+").";loadAktif()}catch(e){$("nst").textContent="⚠️ "+e.message}};
@@ -112,9 +111,10 @@ document.addEventListener("visibilitychange",function(){if(!ready)return;if(docu
 function ulang(){disc();load();loadAktif();if(document.visibilityState==="visible")conn()}
 async function init(){
 ready=true;
+$("hai").textContent="Halo, "+akun.nama+" · "+({spv:"SPV Area",sm:"Store Manager",asm:"Asst. Store Manager"}[akun.peran]||"")+(akun.semua?" · semua World":" · "+akun.worlds.length+" World");
 var pl=await db.from("world").select("id,nama");
-var o0=el("option","","Semua World");o0.value="all";$("pl").appendChild(o0);
-(pl.data||[]).sort(function(a,b){return (parseInt(a.id.slice(1))||0)-(parseInt(b.id.slice(1))||0)}).forEach(function(x){worlds[x.id]=x.nama;var o=el("option","",x.nama);o.value=x.id;$("pl").appendChild(o)});
+var o0=el("option","",akun.semua?"Semua World":"Semua World saya");o0.value="all";$("pl").appendChild(o0);
+(pl.data||[]).filter(function(x){return akun.semua||akun.worlds.indexOf(x.id)>=0}).sort(function(a,b){return (parseInt(a.id.slice(1))||0)-(parseInt(b.id.slice(1))||0)}).forEach(function(x){worlds[x.id]=x.nama;var o=el("option","",x.nama);o.value=x.id;$("pl").appendChild(o)});
 if(sel!=="all"&&!worlds[sel])sel="all";
 var pp=await db.from("pulau").select("id,nama,lantai");(pp.data||[]).forEach(function(x){pulaus[x.id]=(x.lantai?"L"+x.lantai+" ":"")+x.nama});
 $("pl").value=sel;$("pr").value=per;
@@ -124,7 +124,7 @@ var b=await db.from("brand").select("id,nama");(b.data||[]).forEach(function(x){
 if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$("nst").textContent="iPhone: tekan Bagikan lalu Add to Home Screen, kemudian buka dari ikonnya.";
 else if(await segarkanPush(db,info()))$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua World":worlds[sel])+").";
 ulang()}
-async function cek(p){var r=await db.rpc("cek_pin",{p_kunci:"spv",p_pin:p});return r.data===true}
+async function cek(p){var r=await db.rpc("login_spv",{p_pin:p});if(r.data){akun=r.data;return true}return false}
 function masuk(){$("gate").classList.add("hide");$("app").classList.remove("hide");if(ready)ulang();else init()}
 $("masuk").onclick=async function(){var p=$("pin").value.trim();
 if(await cek(p)){pin=p;localStorage.setItem("spv_pin",p);masuk()}else $("ge").textContent="PIN salah."};

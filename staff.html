@@ -15,8 +15,9 @@
 <h1>ASK MATAHARI SKA · Karyawan</h1>
 <label for="me" style="margin-top:8px">Nama-NIK Anda</label>
 <input id="me" placeholder="Contoh: Rina-1023" autocomplete="off">
-<label for="wd">World tempat Anda bertugas</label>
-<select id="wd"></select>
+<label>World tempat Anda bertugas</label>
+<p class="s" style="font-size:14px;margin:0 0 6px">Boleh pilih lebih dari satu. Kosongkan semua untuk menerima semua World.</p>
+<div id="wd" class="chips" style="flex-wrap:wrap;overflow:visible"></div>
 <div id="alarmbar" class="card hide" style="background:#ea0029;border:0;text-align:center;margin-top:12px"><b style="color:#fff;font-size:20px">🔔 ADA PELANGGAN MENUNGGU!</b><br><button class="btn sm" id="diam" style="margin-top:8px;background:#fff;color:#ea0029">Diamkan 1 menit</button></div>
 <button class="btn" id="notif" style="margin:14px 0 6px">🔔 Aktifkan notifikasi</button>
 <button class="btn" id="suara" style="margin:0 0 6px;background:var(--card);color:var(--tx);border:1px solid var(--bd)">🔊 Aktifkan suara alarm di aplikasi</button>
@@ -29,10 +30,11 @@
 <script>
 var db=supabase.createClient(CFG.url,CFG.key);
 var $=function(x){return document.getElementById(x)};
-var world=localStorage.getItem("world")||"all",ready=false,ch=null,iv=null,lastBeep=0,worlds={},brands={},pulaus={};
+var worldSel=[];try{worldSel=JSON.parse(localStorage.getItem("worlds")||"null")||(localStorage.getItem("world")&&localStorage.getItem("world")!=="all"?[localStorage.getItem("world")]:[])}catch(e){}
+var ready=false,ch=null,iv=null,lastBeep=0,worlds={},brands={},pulaus={};
 $("me").value=localStorage.getItem("nama")||"";
-function wname(){return world==="all"?"semua World":(worlds[world]||world)}
-function info(){return {nama:$("me").value.trim(),peran:"staff",world:world==="all"?null:world}}
+function wname(){return worldSel.length?worldSel.map(function(i){return worlds[i]||i}).join(", "):"semua World"}
+function info(){return {nama:$("me").value.trim(),peran:"staff",world:worldSel.length?worldSel.join(","):null}}
 $("me").onchange=function(){localStorage.setItem("nama",$("me").value.trim());segarkanPush(db,info())};
 var alarm=new Audio("suara-notifikasi-ask.mp3");alarm.loop=true;alarm.preload="auto";
 var alarmOn=localStorage.getItem("alarm_on")==="1",diamSampai=0,unlocked=false;
@@ -54,7 +56,7 @@ try{await aktifkanPush(db,i);$("nst").textContent="✅ Notifikasi aktif untuk "+
 catch(e){$("nst").textContent="⚠️ "+e.message}};
 async function load(){
 var q=db.from("permintaan").select("id,pulau_id,brand_id,world_id,kebutuhan,catatan,nama,foto_url,status,diambil_oleh,dibuat").in("status",["menunggu","diambil"]).order("dibuat",{ascending:false}).limit(50);
-if(world!=="all")q=q.eq("world_id",world);
+if(worldSel.length)q=q.in("world_id",worldSel);
 var r=await q,rows=r.data||[];
 var ada=rows.some(function(x){return x.status==="menunggu"});atur(ada);if(ada&&!alarmOn&&Date.now()-lastBeep>20000){lastBeep=Date.now();beep()}
 var L=$("list");L.innerHTML="";
@@ -77,19 +79,19 @@ if(r.data!==true)alert("Sudah diambil karyawan lain.");load()}}
 else{btn.className="btn sm ok";btn.textContent="Selesai";btn.onclick=async function(){btn.disabled=true;await db.rpc("selesai_permintaan",{p_id:x.id});load()}}
 c.appendChild(btn);L.appendChild(c)})}
 function conn(){
-if(!ch){var o={event:"*",schema:"public",table:"permintaan"};if(world!=="all")o.filter="world_id=eq."+world;
-ch=db.channel("staff-"+world).on("postgres_changes",o,function(m){if(m.eventType==="INSERT")beep();load()}).subscribe()}
+if(!ch){var o={event:"*",schema:"public",table:"permintaan"};if(worldSel.length)o.filter="world_id=in.("+worldSel.join(",")+")";
+ch=db.channel("staff-"+worldSel.join("-")).on("postgres_changes",o,function(m){if(m.eventType==="INSERT")beep();load()}).subscribe()}
 if(!iv)iv=setInterval(load,30000)}
 function disc(){if(ch){db.removeChannel(ch);ch=null}if(iv){clearInterval(iv);iv=null}}
 document.addEventListener("visibilitychange",function(){if(!ready)return;if(document.visibilityState==="visible"){load();conn()}else disc()});
 async function init(){setSuara();
 var w=await db.from("world").select("id,nama");
-var o0=document.createElement("option");o0.value="all";o0.textContent="Semua World";$("wd").appendChild(o0);
-(w.data||[]).sort(function(a,b){return (parseInt(a.id.slice(1))||0)-(parseInt(b.id.slice(1))||0)}).forEach(function(x){worlds[x.id]=x.nama;var o=document.createElement("option");o.value=x.id;o.textContent=x.nama;$("wd").appendChild(o)});
-if(world!=="all"&&!worlds[world])world="all";
-$("wd").value=world;
-$("wd").onchange=function(){world=$("wd").value;localStorage.setItem("world",world);disc();load();if(document.visibilityState==="visible")conn();
-if($("me").value.trim())segarkanPush(db,info()).then(function(ok){if(ok)$("nst").textContent="✅ Notifikasi aktif untuk "+wname()+"."})};
+(w.data||[]).sort(function(a,b){return (parseInt(a.id.slice(1))||0)-(parseInt(b.id.slice(1))||0)}).forEach(function(x){worlds[x.id]=x.nama});
+worldSel=worldSel.filter(function(i){return worlds[i]});
+function gambarWorld(){var h=$("wd");h.innerHTML="";Object.keys(worlds).forEach(function(id){var b=document.createElement("button");b.textContent=worlds[id];b.className=worldSel.indexOf(id)>=0?"on":"";
+b.onclick=function(){var i=worldSel.indexOf(id);if(i>=0)worldSel.splice(i,1);else worldSel.push(id);localStorage.setItem("worlds",JSON.stringify(worldSel));gambarWorld();disc();load();if(document.visibilityState==="visible")conn();
+if($("me").value.trim())segarkanPush(db,info()).then(function(ok){if(ok)$("nst").textContent="✅ Notifikasi aktif untuk "+wname()+"."})};h.appendChild(b)})}
+gambarWorld();
 var b=await db.from("brand").select("id,nama");(b.data||[]).forEach(function(x){brands[x.id]=x.nama});
 var p=await db.from("pulau").select("id,nama,lantai");(p.data||[]).forEach(function(x){pulaus[x.id]=(x.lantai?"L"+x.lantai+" ":"")+x.nama});
 ready=true;await load();
