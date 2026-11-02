@@ -41,6 +41,12 @@ details{margin-bottom:10px}summary{font-weight:700;padding:10px 0}</style>
 <h2>Per brand</h2><div class="card" id="brd"></div>
 <h2>Riwayat terbaru</h2><div id="his"></div>
 <h2>Karyawan dengan notifikasi aktif</h2><div id="aktif"></div>
+<details style="margin-top:18px"><summary>🔑 Ganti PIN saya</summary>
+<input id="pl0" type="password" inputmode="numeric" maxlength="6" placeholder="PIN lama" autocomplete="off" style="margin-bottom:8px">
+<input id="pb1" type="password" inputmode="numeric" maxlength="6" placeholder="PIN baru (6 angka)" autocomplete="off" style="margin-bottom:8px">
+<input id="pb2" type="password" inputmode="numeric" maxlength="6" placeholder="Ulangi PIN baru" autocomplete="off">
+<button class="btn" id="gp">Simpan PIN baru</button>
+<p class="s" id="gpm" style="margin-top:8px"></p></details>
 <p class="s" id="upd" style="font-size:13px;margin-top:14px"></p>
 </div>
 </main>
@@ -124,6 +130,12 @@ var b=await db.from("brand").select("id,nama");(b.data||[]).forEach(function(x){
 if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$("nst").textContent="iPhone: tekan Bagikan lalu Add to Home Screen, kemudian buka dari ikonnya.";
 else if(await segarkanPush(db,info()))$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua World":worlds[sel])+").";
 ulang()}
+$("gp").onclick=async function(){
+var m=$("gpm");if($("pb1").value!==$("pb2").value){m.textContent="PIN baru dan ulangannya tidak sama.";return}
+$("gp").disabled=true;var r=await db.rpc("ganti_pin",{p_pin_lama:$("pl0").value.trim(),p_pin_baru:$("pb1").value.trim()});$("gp").disabled=false;
+var s=r.data;
+if(s==="ok"){pin=$("pb1").value.trim();localStorage.setItem("spv_pin",pin);m.textContent="✅ PIN berhasil diganti. Gunakan PIN baru untuk masuk berikutnya.";["pl0","pb1","pb2"].forEach(function(i){$(i).value=""});segarkanPush(db,info())}
+else m.textContent=s==="salah"?"PIN lama salah.":s==="format"?"PIN baru harus 6 angka.":s==="dipakai"?"PIN itu sudah dipakai orang lain, pilih yang lain.":"Gagal mengganti PIN. Coba lagi."};
 async function cek(p){var r=await db.rpc("login_spv",{p_pin:p});if(r.data){akun=r.data;return true}return false}
 function masuk(){$("gate").classList.add("hide");$("app").classList.remove("hide");if(ready)ulang();else init()}
 $("masuk").onclick=async function(){var p=$("pin").value.trim();
