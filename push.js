@@ -1,5 +1,5 @@
 function b64(s){var p="=".repeat((4-s.length%4)%4),b=(s+p).replace(/-/g,"+").replace(/_/g,"/"),r=atob(b),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o}
-function daftarPush(db,sub,info){return db.rpc("daftar_push",{p_endpoint:sub.endpoint,p_sub:sub.toJSON(),p_nama:info.nama,p_peran:info.peran,p_pulau:info.pulau,p_brand:info.brand})}
+function daftarPush(db,sub,info){return db.rpc("daftar_push",{p_endpoint:sub.endpoint,p_sub:sub.toJSON(),p_nama:info.nama,p_peran:info.peran,p_world:info.world||null,p_pin:info.pin||null})}
 async function aktifkanPush(db,info){
   if(!("serviceWorker" in navigator)||!("PushManager" in window)) throw new Error("Browser ini belum mendukung notifikasi. Di iPhone: tekan Bagikan lalu Add to Home Screen, kemudian buka dari ikonnya.");
   var reg=await navigator.serviceWorker.register("sw.js");
@@ -9,6 +9,7 @@ async function aktifkanPush(db,info){
   var sub=(await reg.pushManager.getSubscription())||(await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64(CFG.vapid)}));
   var r=await daftarPush(db,sub,info);
   if(r.error) throw new Error("Gagal menyimpan pendaftaran. Coba lagi.");
+  if(r.data!==true) throw new Error("Pendaftaran ditolak. Pastikan nama terisi (SPV: PIN benar).");
 }
 async function segarkanPush(db,info){
   try{
@@ -16,6 +17,6 @@ async function segarkanPush(db,info){
     var reg=await navigator.serviceWorker.register("sw.js");await navigator.serviceWorker.ready;
     var sub=await reg.pushManager.getSubscription();
     if(!sub) return false;
-    await daftarPush(db,sub,info);return true;
+    var r=await daftarPush(db,sub,info);return r.data===true;
   }catch(e){return false}
 }

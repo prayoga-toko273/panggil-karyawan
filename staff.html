@@ -9,31 +9,19 @@
 <meta name="apple-mobile-web-app-title" content="MDS SKA">
 <meta name="theme-color" content="#ea0029">
 <link rel="stylesheet" href="style.css">
+<style>select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit}
+.foto{width:100%;max-height:240px;object-fit:cover;border-radius:12px;margin:0 0 10px;display:block}</style>
 </head><body><main>
-<div id="pick" class="hide">
-<h1>ASK MATAHARI SKA</h1>
-<p class="s">Pilih pulau tempat Anda bertugas.</p>
-<select id="pk" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit"></select>
-<button class="btn" id="lanjut">Lanjut</button>
-</div>
-<div id="gate" class="hide">
-<h1>ASK MATAHARI SKA</h1>
-<p class="s" id="gp">Masukkan PIN pulau dari SPV Anda.</p>
-<input id="pin" type="password" inputmode="numeric" maxlength="6" placeholder="PIN 6 angka" autocomplete="off">
-<button class="btn" id="masuk">Masuk</button>
-<p class="s" id="ge" style="margin-top:10px"></p>
-</div>
-<div id="app" class="hide">
 <h1>ASK MATAHARI SKA · Karyawan</h1>
-<select id="pl" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit;margin-bottom:10px"></select>
-<input id="me" placeholder="Nama-NIK (contoh: Rina-1023)">
-<div class="chips" id="chips" style="margin-top:12px"></div>
-<div id="alarmbar" class="card hide" style="background:var(--accent,#ea0029);border:0;text-align:center"><b style="color:#fff;font-size:20px">🔔 ADA PELANGGAN MENUNGGU!</b><br><button class="btn sm" id="diam" style="margin-top:8px;background:#fff;color:#ea0029">Diamkan 1 menit</button></div>
-<button class="btn" id="notif" style="margin:0 0 6px">🔔 Aktifkan notifikasi</button>
+<label for="me" style="margin-top:8px">Nama-NIK Anda</label>
+<input id="me" placeholder="Contoh: Rina-1023" autocomplete="off">
+<label for="wd">World tempat Anda bertugas</label>
+<select id="wd"></select>
+<div id="alarmbar" class="card hide" style="background:#ea0029;border:0;text-align:center;margin-top:12px"><b style="color:#fff;font-size:20px">🔔 ADA PELANGGAN MENUNGGU!</b><br><button class="btn sm" id="diam" style="margin-top:8px;background:#fff;color:#ea0029">Diamkan 1 menit</button></div>
+<button class="btn" id="notif" style="margin:14px 0 6px">🔔 Aktifkan notifikasi</button>
 <button class="btn" id="suara" style="margin:0 0 6px;background:var(--card);color:var(--tx);border:1px solid var(--bd)">🔊 Aktifkan suara alarm di aplikasi</button>
-<p class="s" id="nst" style="font-size:14px">Brand yang dipilih di atas menentukan notifikasi yang Anda terima.</p>
+<p class="s" id="nst" style="font-size:14px">Isi nama dan pilih World, lalu tekan Aktifkan notifikasi. Anda hanya menerima panggilan untuk World yang dipilih.</p>
 <div id="list"></div>
-</div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
@@ -41,12 +29,11 @@
 <script>
 var db=supabase.createClient(CFG.url,CFG.key);
 var $=function(x){return document.getElementById(x)};
-var pulau=new URLSearchParams(location.search).get("pulau")||localStorage.getItem("pulau")||null;
-if(pulau)localStorage.setItem("pulau",pulau);
-var pin=localStorage.getItem("pin_"+pulau)||"",ready=false,ch=null,iv=null,lastBeep=0,brands={},filter=localStorage.getItem("brand_"+pulau)||"all";
+var world=localStorage.getItem("world")||"all",ready=false,ch=null,iv=null,lastBeep=0,worlds={},brands={},pulaus={};
 $("me").value=localStorage.getItem("nama")||"";
-function info(){return {nama:$("me").value.trim(),peran:"staff",pulau:pulau,brand:filter==="all"?null:filter,pin:pin}}
-$("me").onchange=function(){localStorage.setItem("nama",$("me").value);segarkanPush(db,info())};
+function wname(){return world==="all"?"semua World":(worlds[world]||world)}
+function info(){return {nama:$("me").value.trim(),peran:"staff",world:world==="all"?null:world}}
+$("me").onchange=function(){localStorage.setItem("nama",$("me").value.trim());segarkanPush(db,info())};
 var alarm=new Audio("suara-notifikasi-ask.mp3");alarm.loop=true;alarm.preload="auto";
 var alarmOn=localStorage.getItem("alarm_on")==="1",diamSampai=0,unlocked=false;
 function unlock(){if(unlocked||!alarmOn)return;alarm.play().then(function(){alarm.pause();alarm.currentTime=0;unlocked=true}).catch(function(){})}
@@ -60,63 +47,54 @@ if(bunyi){alarm.play().catch(function(){})}else alarm.pause();
 if(ada)try{navigator.vibrate&&navigator.vibrate([600,200,600])}catch(e){}}
 function beep(){try{navigator.vibrate&&navigator.vibrate([300,100,300]);var c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator();o.connect(c.destination);o.frequency.value=880;o.start();setTimeout(function(){o.stop()},350)}catch(e){}}
 function mnt(t){var m=Math.floor((Date.now()-new Date(t))/60000);return m<1?"baru saja":m+" menit lalu"}
-function chips(){var h=$("chips");h.innerHTML="";
-[["all","Semua"]].concat(Object.keys(brands).map(function(k){return [k,brands[k]]})).forEach(function(x){
-var b=document.createElement("button");b.textContent=x[1];b.className=filter===x[0]?"on":"";
-b.onclick=function(){filter=x[0];localStorage.setItem("brand_"+pulau,filter);chips();load();segarkanPush(db,info())};h.appendChild(b)})}
 $("notif").onclick=async function(){
-var i=info();if(!i.nama){alert("Isi nama Anda dulu.");return}
+var i=info();if(!i.nama){alert("Isi Nama-NIK Anda dulu.");return}
 localStorage.setItem("nama",i.nama);
-try{await aktifkanPush(db,i);$("nst").textContent="✅ Notifikasi aktif untuk "+(i.brand?brands[i.brand]:"semua brand")+".";}
+try{await aktifkanPush(db,i);$("nst").textContent="✅ Notifikasi aktif untuk "+wname()+"."}
 catch(e){$("nst").textContent="⚠️ "+e.message}};
 async function load(){
-var r=await db.from("permintaan").select("id,brand_id,kebutuhan,catatan,nama,status,diambil_oleh,dibuat").eq("pulau_id",pulau).in("status",["menunggu","diambil"]).order("dibuat",{ascending:false}).limit(50);
-var rows=(r.data||[]).filter(function(x){return filter==="all"||!x.brand_id||x.brand_id===filter});
+var q=db.from("permintaan").select("id,pulau_id,brand_id,world_id,kebutuhan,catatan,nama,foto_url,status,diambil_oleh,dibuat").in("status",["menunggu","diambil"]).order("dibuat",{ascending:false}).limit(50);
+if(world!=="all")q=q.eq("world_id",world);
+var r=await q,rows=r.data||[];
 var ada=rows.some(function(x){return x.status==="menunggu"});atur(ada);if(ada&&!alarmOn&&Date.now()-lastBeep>20000){lastBeep=Date.now();beep()}
 var L=$("list");L.innerHTML="";
-if(!rows.length){L.innerHTML='<div class="card s">Belum ada permintaan.</div>';return}
+if(!rows.length){L.innerHTML='<div class="card s">Belum ada permintaan untuk '+wname()+'.</div>';return}
 rows.forEach(function(x){
 var c=document.createElement("div");c.className="card";
+if(x.foto_url){var im=document.createElement("img");im.className="foto";im.loading="lazy";im.src=x.foto_url;im.alt="Foto barang dari pelanggan";im.onclick=function(){window.open(x.foto_url,"_blank")};c.appendChild(im)}
 var t=document.createElement("div");t.className="row";
 var b=document.createElement("b");b.textContent=(brands[x.brand_id]||"Semua brand")+" · "+x.kebutuhan;
 var g=document.createElement("span");g.className="tag"+(x.status==="diambil"?" g":"");g.textContent=x.status==="diambil"?"Diambil: "+(x.diambil_oleh||""):"Menunggu";
 t.appendChild(b);t.appendChild(g);
 var d=document.createElement("div");d.className="s";d.style.margin="4px 0 10px";
-d.textContent=mnt(x.dibuat)+(x.nama?" · "+x.nama:"")+(x.catatan?" · "+x.catatan:"");
+d.textContent=(pulaus[x.pulau_id]||"")+" · "+mnt(x.dibuat)+(x.nama?" · "+x.nama:"")+(x.catatan?" · "+x.catatan:"");
 c.appendChild(t);c.appendChild(d);
 var btn=document.createElement("button");
 if(x.status==="menunggu"){btn.className="btn sm";btn.textContent="Ambil";btn.onclick=async function(){
-var n=$("me").value.trim();if(!n){alert("Isi nama Anda dulu.");return}
-var r=await db.rpc("ambil_permintaan",{p_id:x.id,p_nama:n,p_pin:pin});
+var n=$("me").value.trim();if(!n){alert("Isi Nama-NIK Anda dulu.");return}
+btn.disabled=true;var r=await db.rpc("ambil_permintaan",{p_id:x.id,p_nama:n});
 if(r.data!==true)alert("Sudah diambil karyawan lain.");load()}}
-else{btn.className="btn sm ok";btn.textContent="Selesai";btn.onclick=async function(){await db.rpc("selesai_permintaan",{p_id:x.id,p_pin:pin});load()}}
+else{btn.className="btn sm ok";btn.textContent="Selesai";btn.onclick=async function(){btn.disabled=true;await db.rpc("selesai_permintaan",{p_id:x.id});load()}}
 c.appendChild(btn);L.appendChild(c)})}
 function conn(){
-if(!ch)ch=db.channel("staff-"+pulau).on("postgres_changes",{event:"*",schema:"public",table:"permintaan",filter:"pulau_id=eq."+pulau},function(m){if(m.eventType==="INSERT")beep();load()}).subscribe();
+if(!ch){var o={event:"*",schema:"public",table:"permintaan"};if(world!=="all")o.filter="world_id=eq."+world;
+ch=db.channel("staff-"+world).on("postgres_changes",o,function(m){if(m.eventType==="INSERT")beep();load()}).subscribe()}
 if(!iv)iv=setInterval(load,30000)}
 function disc(){if(ch){db.removeChannel(ch);ch=null}if(iv){clearInterval(iv);iv=null}}
 document.addEventListener("visibilitychange",function(){if(!ready)return;if(document.visibilityState==="visible"){load();conn()}else disc()});
 async function init(){setSuara();
-ready=true;
-var pl=await db.from("pulau").select("id,nama").order("id");
-(pl.data||[]).sort(function(a,b){return (parseInt(a.id.slice(1))||0)-(parseInt(b.id.slice(1))||0)}).forEach(function(p){var o=document.createElement("option");o.value=p.id;o.textContent=p.nama;if(p.id===pulau)o.selected=true;$("pl").appendChild(o)});
-$("pl").onchange=function(){localStorage.setItem("pulau",$("pl").value);location.href="staff.html?pulau="+$("pl").value};
-var b=await db.from("brand").select("id,nama").eq("pulau_id",pulau).order("nama");
-(b.data||[]).forEach(function(x){brands[x.id]=x.nama});chips();await load();
+var w=await db.from("world").select("id,nama");
+var o0=document.createElement("option");o0.value="all";o0.textContent="Semua World";$("wd").appendChild(o0);
+(w.data||[]).sort(function(a,b){return (parseInt(a.id.slice(1))||0)-(parseInt(b.id.slice(1))||0)}).forEach(function(x){worlds[x.id]=x.nama;var o=document.createElement("option");o.value=x.id;o.textContent=x.nama;$("wd").appendChild(o)});
+if(world!=="all"&&!worlds[world])world="all";
+$("wd").value=world;
+$("wd").onchange=function(){world=$("wd").value;localStorage.setItem("world",world);disc();load();if(document.visibilityState==="visible")conn();
+if($("me").value.trim())segarkanPush(db,info()).then(function(ok){if(ok)$("nst").textContent="✅ Notifikasi aktif untuk "+wname()+"."})};
+var b=await db.from("brand").select("id,nama");(b.data||[]).forEach(function(x){brands[x.id]=x.nama});
+var p=await db.from("pulau").select("id,nama,lantai");(p.data||[]).forEach(function(x){pulaus[x.id]=(x.lantai?"L"+x.lantai+" ":"")+x.nama});
+ready=true;await load();
 if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$("nst").textContent="iPhone: tekan tombol Bagikan lalu Add to Home Screen, kemudian buka aplikasi dari ikonnya di layar utama.";
-else if(await segarkanPush(db,info()))$("nst").textContent="✅ Notifikasi aktif untuk "+(filter==="all"?"semua brand":brands[filter])+".";
+else if($("me").value.trim()&&await segarkanPush(db,info()))$("nst").textContent="✅ Notifikasi aktif untuk "+wname()+".";
 if(document.visibilityState==="visible")conn()}
-async function cek(p){var r=await db.rpc("cek_pin",{p_kunci:pulau,p_pin:p});return r.data===true}
-function masuk(){$("gate").classList.add("hide");$("app").classList.remove("hide");init()}
-$("masuk").onclick=async function(){var p=$("pin").value.trim();
-if(await cek(p)){pin=p;localStorage.setItem("pin_"+pulau,p);masuk()}else $("ge").textContent="PIN salah. Coba lagi atau tanya SPV."};
-if(!pulau){(async function(){
-var pl=await db.from("pulau").select("id,nama");
-(pl.data||[]).sort(function(a,b){return (parseInt(a.id.slice(1))||0)-(parseInt(b.id.slice(1))||0)}).forEach(function(p){var o=document.createElement("option");o.value=p.id;o.textContent=p.nama;$("pk").appendChild(o)});
-$("pick").classList.remove("hide");
-$("lanjut").onclick=function(){localStorage.setItem("pulau",$("pk").value);location.href="staff.html?pulau="+$("pk").value}})()}
-else (async function(){
-var p=await db.from("pulau").select("nama").eq("id",pulau).maybeSingle();
-$("gp").textContent=p.data?"Masukkan PIN untuk "+p.data.nama+". PIN diberikan oleh SPV.":"Pulau tidak ditemukan. Cek kembali link Anda.";
-if(pin&&await cek(pin))masuk();else $("gate").classList.remove("hide")})();
+init();
 </script></body></html>

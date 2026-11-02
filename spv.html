@@ -33,9 +33,11 @@ details{margin-bottom:10px}summary{font-weight:700;padding:10px 0}</style>
 <div class="card"><div class="s" style="margin:0">Rata-rata respons</div><p class="k" id="k4">-</p></div>
 <div class="card"><div class="s" style="margin:0">Cepat</div><p class="k" id="k5" style="color:var(--ok)">-</p></div>
 <div class="card"><div class="s" style="margin:0">Lambat</div><p class="k" id="k6" style="color:#dc2626">0</p></div>
+<div class="card" style="grid-column:1/3"><div class="s" style="margin:0">Penilaian pelanggan (rata-rata bintang)</div><p class="k" id="k7" style="color:#f5a524">-</p></div>
 </div>
 <h2>Sedang berjalan</h2><div id="act"></div>
 <h2>Penilaian karyawan</h2><div id="kar"></div>
+<h2>Per World</h2><div class="card" id="wld"></div>
 <h2>Per brand</h2><div class="card" id="brd"></div>
 <h2>Riwayat terbaru</h2><div id="his"></div>
 <h2>Karyawan dengan notifikasi aktif</h2><div id="aktif"></div>
@@ -49,10 +51,10 @@ details{margin-bottom:10px}summary{font-weight:700;padding:10px 0}</style>
 var CEPAT=1,LAMBAT=3; // batas menit penilaian
 var db=supabase.createClient(CFG.url,CFG.key);
 var $=function(x){return document.getElementById(x)};
-var pin=localStorage.getItem("spv_pin")||"",sel=localStorage.getItem("spv_pulau")||"all",per=localStorage.getItem("spv_per")||"0";
-var brands={},pulaus={},ready=false,ch=null,iv=null,lastLoad=0;
+var pin=localStorage.getItem("spv_pin")||"",sel=localStorage.getItem("spv_world")||"all",per=localStorage.getItem("spv_per")||"0";
+var brands={},worlds={},pulaus={},ready=false,ch=null,iv=null,lastLoad=0;
 $("me").value=localStorage.getItem("spv_nama")||"";
-function info(){return {nama:$("me").value.trim()||"SPV",peran:"spv",pulau:sel==="all"?null:sel,brand:null,pin:pin}}
+function info(){return {nama:$("me").value.trim()||"SPV",peran:"spv",world:sel==="all"?null:sel,pin:pin}}
 $("me").onchange=function(){localStorage.setItem("spv_nama",$("me").value);segarkanPush(db,info())};
 function mn(a,b){return (new Date(b)-new Date(a))/60000}
 function f(n){return n.toFixed(1).replace(".",",")}
@@ -61,44 +63,48 @@ function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!==und
 function baris(a,tg,sub){var c=el("div","card"),t=el("div","row");t.appendChild(el("b","",a));if(tg)t.appendChild(tg);c.appendChild(t);
 if(sub){var s=el("div","s",sub);s.style.margin="4px 0 0";c.appendChild(s)}return c}
 function tag(m){var n=nilai(m);return el("span",n[1],n[0])}
+function bt(r){return r==null?"":" · ⭐ "+f(+r)}
 function kosong(t){return el("div","card s",t)}
 async function load(){
 lastLoad=Date.now();
-var r=await db.rpc("ringkasan_spv",{p_pulau:sel==="all"?null:sel,p_hari:+per,p_pin:pin});
+var r=await db.rpc("ringkasan_spv",{p_world:sel==="all"?null:sel,p_hari:+per,p_pin:pin});
 var d=r.data;if(!d){if(r.error)return;$("app").classList.add("hide");$("gate").classList.remove("hide");return}
 $("k1").textContent=d.menunggu;$("k2").textContent=d.diproses;$("k3").textContent=d.selesai;
 $("k4").textContent=d.rata!=null?f(d.rata)+" mnt":"-";
 $("k5").textContent=d.n_resp?Math.round(d.cepat/d.n_resp*100)+"%":"-";$("k6").textContent=d.lambat;
+$("k7").textContent=d.rating!=null?"⭐ "+f(+d.rating)+" / 5 ("+d.n_rating+" penilaian)":"Belum ada penilaian";
 var A=$("act");A.innerHTML="";
 if(!d.aktif.length)A.appendChild(kosong("Tidak ada permintaan aktif. 👍"));
 d.aktif.forEach(function(x){var m=Math.floor(mn(x.dibuat,new Date()));
 var g=x.status==="menunggu"?el("span","tag"+(m>=LAMBAT?" red":""),"Menunggu "+m+" mnt"):el("span","tag g",(x.diambil_oleh||"")+" · "+m+" mnt");
-A.appendChild(baris((brands[x.brand_id]||"Semua brand")+" · "+x.kebutuhan,g,(pulaus[x.pulau_id]||x.pulau_id)+(x.nama?" · "+x.nama:"")+(x.catatan?" · "+x.catatan:"")))});
+A.appendChild(baris((brands[x.brand_id]||"Semua brand")+" · "+x.kebutuhan,g,(worlds[x.world_id]||"-")+" · "+(pulaus[x.pulau_id]||x.pulau_id)+(x.nama?" · "+x.nama:"")+(x.catatan?" · "+x.catatan:"")))});
 var K=$("kar");K.innerHTML="";if(!d.karyawan.length)K.appendChild(kosong("Belum ada data."));
-d.karyawan.forEach(function(k){K.appendChild(baris(k.nama,tag(k.rata),k.n+" layanan · rata-rata "+f(k.rata)+" mnt · "+Math.round(k.cepat/k.n*100)+"% cepat · "+k.lambat+" lambat"))});
+d.karyawan.forEach(function(k){K.appendChild(baris(k.nama,tag(k.rata),k.n+" layanan · rata-rata "+f(k.rata)+" mnt · "+Math.round(k.cepat/k.n*100)+"% cepat · "+k.lambat+" lambat"+(k.n_rating?" · ⭐ "+f(+k.rating)+" ("+k.n_rating+")":" · belum dinilai")))});
+var W=$("wld");W.innerHTML="";if(!d.world.length)W.appendChild(el("span","s","Belum ada data."));
+d.world.forEach(function(b){var rw=el("div","row");rw.style.padding="6px 0";rw.appendChild(el("span","",b.world));rw.appendChild(el("b","",b.n+" · "+f(b.rata)+" mnt"+(b.rating!=null?" · ⭐ "+f(+b.rating):"")));W.appendChild(rw)});
 var B=$("brd");B.innerHTML="";if(!d.brand.length)B.appendChild(el("span","s","Belum ada data."));
-d.brand.forEach(function(b){var rw=el("div","row");rw.style.padding="6px 0";rw.appendChild(el("span","",b.brand));rw.appendChild(el("b","",b.n+" · "+f(b.rata)+" mnt"));B.appendChild(rw)});
+d.brand.forEach(function(b){var rw=el("div","row");rw.style.padding="6px 0";rw.appendChild(el("span","",b.brand));rw.appendChild(el("b","",b.n+" · "+f(b.rata)+" mnt"+(b.rating!=null?" · ⭐ "+f(+b.rating):"")));B.appendChild(rw)});
 var H=$("his");H.innerHTML="";if(!d.riwayat.length)H.appendChild(kosong("Belum ada riwayat."));
 d.riwayat.forEach(function(x){var m=x.diambil_pada?mn(x.dibuat,x.diambil_pada):null;
 var t=new Date(x.dibuat).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
-H.appendChild(baris((brands[x.brand_id]||"Semua brand")+" · "+x.kebutuhan,m!=null?tag(m):null,t+" · "+(x.diambil_oleh||"-")+(m!=null?" · respons "+f(m)+" mnt":"")+(x.selesai_pada&&x.diambil_pada?" · layanan "+f(mn(x.diambil_pada,x.selesai_pada))+" mnt":"")))});
+H.appendChild(baris((brands[x.brand_id]||"Semua brand")+" · "+x.kebutuhan,m!=null?tag(m):null,t+" · "+(x.diambil_oleh||"-")+(m!=null?" · respons "+f(m)+" mnt":"")+(x.selesai_pada&&x.diambil_pada?" · layanan "+f(mn(x.diambil_pada,x.selesai_pada))+" mnt":"")+(x.rating?" · "+"⭐".repeat(x.rating):"")+(x.komentar?" · \u201c"+x.komentar+"\u201d":"")))});
 $("upd").textContent="Diperbarui "+new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})+(per==="0"?" · otomatis tiap 1 menit":" · muat ulang halaman untuk data terbaru")}
 async function loadAktif(){
-var r=await db.rpc("daftar_aktif",{p_pulau:sel==="all"?null:sel,p_pin:pin});
+var r=await db.rpc("daftar_aktif",{p_world:sel==="all"?null:sel,p_pin:pin});
 var L=$("aktif");L.innerHTML="";if(!r.data)return;
-var ids=sel==="all"?Object.keys(pulaus):[sel];
+var ids=sel==="all"?Object.keys(worlds):[sel];
 ids.forEach(function(id){
-var st=r.data.filter(function(x){return x.peran==="staff"&&x.pulau_id===id});
-var sp=r.data.filter(function(x){return x.peran==="spv"&&(x.pulau_id===id||!x.pulau_id)});
-var dt=el("details"),sm=el("summary","",(pulaus[id]||id)+" · "+st.length+" karyawan"+(st.length?"":" ⚠️ belum ada")+" · "+sp.length+" SPV");
+var st=r.data.filter(function(x){return x.peran==="staff"&&(x.world_id===id||!x.world_id)});
+var sp=r.data.filter(function(x){return x.peran==="spv"&&(x.world_id===id||!x.world_id)});
+var dt=el("details"),sm=el("summary","",(worlds[id]||id)+" · "+st.length+" karyawan"+(st.length?"":" ⚠️ belum ada")+" · "+sp.length+" SPV");
 dt.appendChild(sm);
-dt.appendChild(el("div","s",st.map(function(x){return x.nama+" ("+(brands[x.brand_id]||"Semua brand")+")"}).join(", ")||"Belum ada karyawan yang mendaftar."));
+dt.appendChild(el("div","s",st.map(function(x){return x.nama+(x.world_id?"":" (semua World)")}).join(", ")||"Belum ada karyawan yang mendaftar."));
 if(sp.length)dt.appendChild(el("div","s","SPV: "+sp.map(function(x){return x.nama}).join(", ")));
 L.appendChild(dt)})}
-$("notif").onclick=async function(){try{await aktifkanPush(db,info());$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua pulau":pulaus[sel])+").";loadAktif()}catch(e){$("nst").textContent="⚠️ "+e.message}};
+$("notif").onclick=async function(){try{await aktifkanPush(db,info());$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua World":worlds[sel])+").";loadAktif()}catch(e){$("nst").textContent="⚠️ "+e.message}};
 function conn(){
 if(per!=="0")return;
-if(!ch){var o={event:"*",schema:"public",table:"permintaan"};if(sel!=="all")o.filter="pulau_id=eq."+sel;
+if(!ch){var o={event:"*",schema:"public",table:"permintaan"};if(sel!=="all")o.filter="world_id=eq."+sel;
 ch=db.channel("spv").on("postgres_changes",o,function(){if(Date.now()-lastLoad>15000)load()}).subscribe()}
 if(!iv)iv=setInterval(load,60000)}
 function disc(){if(ch){db.removeChannel(ch);ch=null}if(iv){clearInterval(iv);iv=null}}
@@ -106,15 +112,17 @@ document.addEventListener("visibilitychange",function(){if(!ready)return;if(docu
 function ulang(){disc();load();loadAktif();if(document.visibilityState==="visible")conn()}
 async function init(){
 ready=true;
-var pl=await db.from("pulau").select("id,nama").order("id");
-var o0=el("option","","Semua pulau");o0.value="all";$("pl").appendChild(o0);
-(pl.data||[]).sort(function(a,b){return (parseInt(a.id.slice(1))||0)-(parseInt(b.id.slice(1))||0)}).forEach(function(x){pulaus[x.id]=x.nama;var o=el("option","",x.nama);o.value=x.id;$("pl").appendChild(o)});
+var pl=await db.from("world").select("id,nama");
+var o0=el("option","","Semua World");o0.value="all";$("pl").appendChild(o0);
+(pl.data||[]).sort(function(a,b){return (parseInt(a.id.slice(1))||0)-(parseInt(b.id.slice(1))||0)}).forEach(function(x){worlds[x.id]=x.nama;var o=el("option","",x.nama);o.value=x.id;$("pl").appendChild(o)});
+if(sel!=="all"&&!worlds[sel])sel="all";
+var pp=await db.from("pulau").select("id,nama,lantai");(pp.data||[]).forEach(function(x){pulaus[x.id]=(x.lantai?"L"+x.lantai+" ":"")+x.nama});
 $("pl").value=sel;$("pr").value=per;
-$("pl").onchange=function(){sel=$("pl").value;localStorage.setItem("spv_pulau",sel);ulang();segarkanPush(db,info())};
+$("pl").onchange=function(){sel=$("pl").value;localStorage.setItem("spv_world",sel);ulang();segarkanPush(db,info())};
 $("pr").onchange=function(){per=$("pr").value;localStorage.setItem("spv_per",per);ulang()};
 var b=await db.from("brand").select("id,nama");(b.data||[]).forEach(function(x){brands[x.id]=x.nama});
 if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$("nst").textContent="iPhone: tekan Bagikan lalu Add to Home Screen, kemudian buka dari ikonnya.";
-else if(await segarkanPush(db,info()))$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua pulau":pulaus[sel])+").";
+else if(await segarkanPush(db,info()))$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua World":worlds[sel])+").";
 ulang()}
 async function cek(p){var r=await db.rpc("cek_pin",{p_kunci:"spv",p_pin:p});return r.data===true}
 function masuk(){$("gate").classList.add("hide");$("app").classList.remove("hide");if(ready)ulang();else init()}
