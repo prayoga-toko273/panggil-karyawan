@@ -5,7 +5,10 @@ self.addEventListener("push", function(e){
   try { d = e.data.json(); } catch (x) {}
   e.waitUntil(self.registration.showNotification(d.title || "Permintaan baru", {
     body: d.body || "", icon: "icon-192.png", badge: "icon-192.png", tag: d.tag,
-    renotify: true, requireInteraction: true, vibrate: [300, 100, 300],
+    renotify: true, requireInteraction: true, silent: false, timestamp: Date.now(),
+    vibrate: d.urgent ? [1000, 300, 1000, 300, 1000, 300, 1000, 300, 1000] : [500, 200, 500, 200, 500],
+    actions: [{ action: "buka", title: "Buka" }],
+    image: d.image ? new URL(d.image, self.registration.scope).href : undefined,
     data: { url: d.url || "staff.html" }
   }));
 });
