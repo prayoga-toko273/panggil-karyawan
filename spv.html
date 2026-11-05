@@ -49,6 +49,9 @@ details{margin-bottom:10px}summary{font-weight:700;padding:10px 0}</style>
 <button class="btn" id="lokset">Pakai lokasi saya sekarang sebagai titik toko dan aktifkan</button>
 <button class="btn" id="lokoff" style="margin-top:8px;background:var(--card);color:var(--tx);border:1px solid var(--bd)">Nonaktifkan wajib lokasi</button>
 <p class="s" id="lokmsg" style="margin-top:8px">Tekan tombol pertama saat Anda berdiri di tengah lantai penjualan. Di dalam mal GPS bisa meleset, jadi pakai radius 200 sampai 400 meter.</p></details>
+<details id="akbox" class="hide" style="margin-top:18px"><summary>👥 Akun karyawan (reset password)</summary>
+<p class="s" style="margin:8px 0">Bila seseorang lupa password, atau NIK didaftarkan orang lain, hapus akunnya. Karyawan itu lalu mendaftar ulang dengan password baru.</p>
+<div id="aklist"></div></details>
 <details style="margin-top:18px"><summary>🔑 Ganti PIN saya</summary>
 <input id="pl0" type="password" inputmode="numeric" maxlength="6" placeholder="PIN lama" autocomplete="off" style="margin-bottom:8px">
 <input id="pb1" type="password" inputmode="numeric" maxlength="6" placeholder="PIN baru (6 angka)" autocomplete="off" style="margin-bottom:8px">
@@ -116,6 +119,12 @@ var kiri=el("span","",(v.on?"🟢 ":"⚪ ")+x+(v.w?" · "+v.w:""));
 var kanan=el("b","",v.n>0?v.n+" merespon · "+f(v.rata)+" mnt":(v.on?"belum merespon":"belum ada respons"));
 rw.appendChild(kiri);rw.appendChild(kanan);L.appendChild(rw)});
 L.appendChild(el("div","s","Online berarti aplikasi karyawan sedang terbuka. Karyawan yang tidak online tetap menerima notifikasi di HP."))}
+async function muatAkun(){var b=$("akbox");if(!akun||!(akun.peran==="sm"||akun.peran==="asm"||akun.semua))return;b.classList.remove("hide");
+var r=await db.rpc("daftar_akun_karyawan",{p_pin:pin});var L=$("aklist");L.innerHTML="";
+if(!r.data||!r.data.length){L.appendChild(el("div","s","Belum ada karyawan yang mendaftar."));return}
+r.data.forEach(function(x){var rw=el("div","row");rw.style.margin="6px 0";rw.appendChild(el("span","",x.nama+"-"+x.nik));
+var t=document.createElement("button");t.className="btn sm";t.style.background="var(--card)";t.style.color="var(--tx)";t.style.border="1px solid var(--bd)";t.textContent="Hapus akun";
+t.onclick=async function(){if(!confirm("Hapus akun "+x.nama+"-"+x.nik+"? Karyawan harus mendaftar ulang."))return;await db.rpc("hapus_akun_karyawan",{p_pin:pin,p_nik:x.nik});muatAkun()};rw.appendChild(t);L.appendChild(rw)})}
 async function muatLokasi(){var b=$("lokbox");if(!akun||!(akun.peran==="sm"||akun.peran==="asm"||akun.semua))return;b.classList.remove("hide");
 var r=await db.rpc("info_lokasi");var d=r.data;if(!d)return;$("lokrad").value=d.radius;
 $("lokst").textContent=d.wajib?"✅ Wajib lokasi AKTIF. Radius "+d.radius+" m dari titik toko.":d.diatur?"Titik toko sudah diatur, wajib lokasi NONAKTIF.":"Belum diatur. Customer belum diwajibkan memakai lokasi."}
@@ -163,7 +172,7 @@ $("pr").onchange=function(){per=$("pr").value;localStorage.setItem("spv_per",per
 var b=await db.from("brand").select("id,nama");(b.data||[]).forEach(function(x){brands[x.id]=x.nama});
 if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$("nst").textContent="iPhone: tekan Bagikan lalu Add to Home Screen, kemudian buka dari ikonnya.";
 else if(await segarkanPush(db,info()))$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua World":worlds[sel])+").";
-muatLokasi();ulang()}
+muatLokasi();muatAkun();ulang()}
 $("gp").onclick=async function(){
 var m=$("gpm");if($("pb1").value!==$("pb2").value){m.textContent="PIN baru dan ulangannya tidak sama.";return}
 $("gp").disabled=true;var r=await db.rpc("ganti_pin",{p_pin_lama:$("pl0").value.trim(),p_pin_baru:$("pb1").value.trim()});$("gp").disabled=false;

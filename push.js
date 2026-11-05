@@ -1,5 +1,5 @@
 function b64(s){var p="=".repeat((4-s.length%4)%4),b=(s+p).replace(/-/g,"+").replace(/_/g,"/"),r=atob(b),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o}
-function daftarPush(db,sub,info){return db.rpc("daftar_push",{p_endpoint:sub.endpoint,p_sub:sub.toJSON(),p_nama:info.nama,p_peran:info.peran,p_world:info.world||null,p_pin:info.pin||null})}
+function daftarPush(db,sub,info){return db.rpc("daftar_push",{p_endpoint:sub.endpoint,p_sub:sub.toJSON(),p_nama:info.nama,p_peran:info.peran,p_world:info.world||null,p_pin:info.pin||null,p_token:info.token||null})}
 async function aktifkanPush(db,info){
   if(!("serviceWorker" in navigator)||!("PushManager" in window)) throw new Error("Browser ini belum mendukung notifikasi. Di iPhone: tekan Bagikan lalu Add to Home Screen, kemudian buka dari ikonnya.");
   var reg=await navigator.serviceWorker.register("sw.js");

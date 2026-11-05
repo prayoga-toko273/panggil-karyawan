@@ -13,17 +13,27 @@
 .foto{width:100%;max-height:240px;object-fit:cover;border-radius:12px;margin:0 0 10px;display:block}</style>
 </head><body><main>
 <h1>ASK MATAHARI SKA · Karyawan</h1>
-<label for="me" style="margin-top:8px">Nama-NIK Anda</label>
-<input id="me" placeholder="Contoh: Rina-1023" autocomplete="off">
+<div id="auth" class="card hide" style="margin-top:12px">
+<div class="chips"><button id="tmasuk" class="on">Masuk</button><button id="tdaftar">Daftar baru</button></div>
+<label for="nik" style="margin-top:4px">NIK</label><input id="nik" placeholder="Contoh: 1023" autocomplete="username" autocapitalize="characters">
+<div id="rnama" class="hide"><label for="nama">Nama</label><input id="nama" placeholder="Contoh: Rina" autocomplete="name"></div>
+<label for="pw">Password</label><input id="pw" type="password" placeholder="Minimal 6 karakter" autocomplete="current-password">
+<p class="s" style="font-size:13px;margin:6px 0 0">Daftar sekali dengan NIK Anda. Password dibuat sendiri, supaya tidak ada yang bisa memakai nama Anda.</p>
+<p id="aerr" style="color:#ea0029;font-weight:600;margin:8px 0 0"></p>
+<button class="btn" id="aok">Masuk</button></div>
+<div id="app" class="hide">
+<div class="card row" style="margin-top:8px"><div><div class="s" style="margin:0;font-size:12px;white-space:nowrap">Masuk sebagai</div><b id="who"></b></div>
+<div style="display:flex;gap:6px"><button class="btn sm" id="gpw" style="font-size:13px;padding:8px 10px;background:var(--card);color:var(--tx);border:1px solid var(--bd)">Ganti password</button><button class="btn sm" id="keluar" style="font-size:13px;padding:8px 10px;background:var(--card);color:var(--tx);border:1px solid var(--bd)">Keluar</button></div></div>
 <label>World tempat Anda bertugas</label>
 <p class="s" style="font-size:14px;margin:0 0 6px">Boleh pilih lebih dari satu. Kosongkan semua untuk menerima semua World.</p>
 <div id="wd" class="chips" style="flex-wrap:wrap;overflow:visible"></div>
 <div id="alarmbar" class="card hide" style="background:#ea0029;border:0;text-align:center;margin-top:12px"><b style="color:#fff;font-size:20px">🔔 ADA PELANGGAN MENUNGGU!</b><br><button class="btn sm" id="diam" style="margin-top:8px;background:#fff;color:#ea0029">Diamkan 1 menit</button></div>
 <button class="btn" id="notif" style="margin:14px 0 6px">🔔 Aktifkan notifikasi</button>
 <button class="btn" id="suara" style="margin:0 0 6px;background:var(--card);color:var(--tx);border:1px solid var(--bd)">🔊 Aktifkan suara alarm di aplikasi</button>
-<p class="s" id="nst" style="font-size:14px">Isi nama dan pilih World, lalu tekan Aktifkan notifikasi. Anda hanya menerima panggilan untuk World yang dipilih.</p>
+<p class="s" id="nst" style="font-size:14px">Pilih World, lalu tekan Aktifkan notifikasi. Anda hanya menerima panggilan untuk World yang dipilih.</p>
 <p class="s" id="onl" style="font-size:14px;font-weight:600"></p>
 <div id="list"></div>
+</div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
@@ -33,16 +43,14 @@ var db=supabase.createClient(CFG.url,CFG.key);
 var $=function(x){return document.getElementById(x)};
 var worldSel=[];try{worldSel=JSON.parse(localStorage.getItem("worlds")||"null")||(localStorage.getItem("world")&&localStorage.getItem("world")!=="all"?[localStorage.getItem("world")]:[])}catch(e){}
 var ready=false,ch=null,iv=null,lastBeep=0,worlds={},brands={},pulaus={};
-$("me").value=localStorage.getItem("nama")||"";
+var tk=localStorage.getItem("tk")||"",mine="",modeDaftar=false;
 var devId=localStorage.getItem("devid");if(!devId){devId="d"+Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem("devid",devId)}
 var pv=null,hiddenAt=0;
 // online = aplikasi ini sedang terbuka. Sinyal dikirim tiap 45 detik; berhenti sendiri saat halaman ditutup atau disembunyikan.
-function ping(){if(document.visibilityState!=="visible"||!ready)return;var i=info();
-if(!i.nama){$("onl").textContent="Isi Nama-NIK agar tercatat online.";return}
-db.rpc("ping_online",{p_id:devId,p_nama:i.nama,p_world:i.world}).then(function(r){if(r&&r.data===true)$("onl").textContent="🟢 Anda tercatat online selama halaman ini terbuka."}).catch(function(){})}
+function ping(){if(document.visibilityState!=="visible"||!ready||!tk)return;var i=info();
+db.rpc("ping_online",{p_id:devId,p_token:tk,p_world:i.world}).then(function(r){if(r&&r.data===true)$("onl").textContent="🟢 Anda tercatat online selama halaman ini terbuka."}).catch(function(){})}
 function wname(){return worldSel.length?worldSel.map(function(i){return worlds[i]||i}).join(", "):"semua World"}
-function info(){return {nama:$("me").value.trim(),peran:"staff",world:worldSel.length?worldSel.join(","):null}}
-$("me").onchange=function(){localStorage.setItem("nama",$("me").value.trim());segarkanPush(db,info());ping()};
+function info(){return {nama:mine,token:tk,peran:"staff",world:worldSel.length?worldSel.join(","):null}}
 var alarm=new Audio("suara-notifikasi-ask.mp3");alarm.loop=true;alarm.preload="auto";
 var alarmOn=localStorage.getItem("alarm_on")==="1",diamSampai=0,unlocked=false;
 function unlock(){if(unlocked||!alarmOn)return;alarm.play().then(function(){alarm.pause();alarm.currentTime=0;unlocked=true}).catch(function(){})}
@@ -57,8 +65,7 @@ if(ada)try{navigator.vibrate&&navigator.vibrate([600,200,600])}catch(e){}}
 function beep(){try{navigator.vibrate&&navigator.vibrate([300,100,300]);var c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator();o.connect(c.destination);o.frequency.value=880;o.start();setTimeout(function(){o.stop()},350)}catch(e){}}
 function mnt(t){var m=Math.floor((Date.now()-new Date(t))/60000);return m<1?"baru saja":m+" menit lalu"}
 $("notif").onclick=async function(){
-var i=info();if(!i.nama){alert("Isi Nama-NIK Anda dulu.");return}
-localStorage.setItem("nama",i.nama);
+var i=info();
 try{await aktifkanPush(db,i);$("nst").textContent="✅ Notifikasi aktif untuk "+wname()+"."}
 catch(e){$("nst").textContent="⚠️ "+e.message}};
 async function load(){
@@ -80,10 +87,9 @@ d.textContent=(pulaus[x.pulau_id]||"")+" · "+mnt(x.dibuat)+(x.nama?" · "+x.nam
 c.appendChild(t);c.appendChild(d);
 var btn=document.createElement("button");
 if(x.status==="menunggu"){btn.className="btn sm";btn.textContent="Ambil";btn.onclick=async function(){
-var n=$("me").value.trim();if(!n){alert("Isi Nama-NIK Anda dulu.");return}
-btn.disabled=true;var r=await db.rpc("ambil_permintaan",{p_id:x.id,p_nama:n});
-if(r.data!==true)alert("Sudah diambil karyawan lain.");load()}}
-else{btn.className="btn sm ok";btn.textContent="Selesai";btn.onclick=async function(){btn.disabled=true;await db.rpc("selesai_permintaan",{p_id:x.id});load()}}
+btn.disabled=true;var r=await db.rpc("ambil_permintaan",{p_id:x.id,p_token:tk});
+if(r.data!==true){if(!(await sesiOk()))return;alert("Sudah diambil karyawan lain.")}load()}}
+else{btn.className="btn sm ok";btn.textContent="Selesai";btn.onclick=async function(){btn.disabled=true;await db.rpc("selesai_permintaan",{p_id:x.id,p_token:tk});load()}}
 c.appendChild(btn);L.appendChild(c)})}
 function conn(){
 if(!ch){var o={event:"*",schema:"public",table:"permintaan"};if(worldSel.length)o.filter="world_id=in.("+worldSel.join(",")+")";
@@ -99,13 +105,37 @@ var w=await db.from("world").select("id,nama");
 worldSel=worldSel.filter(function(i){return worlds[i]});
 function gambarWorld(){var h=$("wd");h.innerHTML="";Object.keys(worlds).forEach(function(id){var b=document.createElement("button");b.textContent=worlds[id];b.className=worldSel.indexOf(id)>=0?"on":"";
 b.onclick=function(){var i=worldSel.indexOf(id);if(i>=0)worldSel.splice(i,1);else worldSel.push(id);localStorage.setItem("worlds",JSON.stringify(worldSel));gambarWorld();disc();load();if(document.visibilityState==="visible")conn();
-if($("me").value.trim())segarkanPush(db,info()).then(function(ok){if(ok)$("nst").textContent="✅ Notifikasi aktif untuk "+wname()+"."})};h.appendChild(b)})}
+segarkanPush(db,info()).then(function(ok){if(ok)$("nst").textContent="✅ Notifikasi aktif untuk "+wname()+"."})};h.appendChild(b)})}
 gambarWorld();
 var b=await db.from("brand").select("id,nama");(b.data||[]).forEach(function(x){brands[x.id]=x.nama});
 var p=await db.from("pulau").select("id,nama,lantai");(p.data||[]).forEach(function(x){pulaus[x.id]=(x.lantai?"L"+x.lantai+" ":"")+x.nama});
 ready=true;await load();
 if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$("nst").textContent="iPhone: tekan tombol Bagikan lalu Add to Home Screen, kemudian buka aplikasi dari ikonnya di layar utama.";
-else if($("me").value.trim()&&await segarkanPush(db,info()))$("nst").textContent="✅ Notifikasi aktif untuk "+wname()+".";
+else if(await segarkanPush(db,info()))$("nst").textContent="✅ Notifikasi aktif untuk "+wname()+".";
 if(document.visibilityState==="visible")conn()}
-init();
+// ---- akun karyawan ----
+function tampilAuth(pesan){tk="";localStorage.removeItem("tk");ready=false;disc();$("app").classList.add("hide");$("auth").classList.remove("hide");$("aerr").textContent=pesan||""}
+async function sesiOk(){try{var r=await db.rpc("sesi_karyawan_cek",{p_token:tk});if(r.error)return true;if(!r.data){tampilAuth("Sesi habis. Silakan masuk lagi.");return false}return true}catch(e){return true}}
+function modeAuth(d){modeDaftar=d;$("tmasuk").className=d?"":"on";$("tdaftar").className=d?"on":"";$("rnama").classList.toggle("hide",!d);$("aok").textContent=d?"Daftar":"Masuk";$("pw").autocomplete=d?"new-password":"current-password";$("aerr").textContent=""}
+$("tmasuk").onclick=function(){modeAuth(false)};$("tdaftar").onclick=function(){modeAuth(true)};
+var PESAN={ada:"NIK ini sudah terdaftar. Pilih Masuk. Bila bukan Anda yang mendaftar, minta SPV mereset akun.",data:"NIK harus 4 sampai 20 huruf atau angka, nama 2 sampai 40 huruf.",password:"Password minimal 6 karakter.",salah:"NIK atau password salah.",kunci:"Terlalu banyak salah. Coba lagi 5 menit lagi."};
+$("aok").onclick=async function(){
+var nik=$("nik").value.trim(),pw=$("pw").value;if(!nik||!pw){$("aerr").textContent="Isi NIK dan password.";return}
+$("aok").disabled=true;
+var r=modeDaftar?await db.rpc("daftar_karyawan",{p_nik:nik,p_nama:$("nama").value,p_password:pw}):await db.rpc("masuk_karyawan",{p_nik:nik,p_password:pw});
+$("aok").disabled=false;
+if(r.error||!r.data){$("aerr").textContent="Gagal terhubung. Coba lagi.";return}
+if(r.data.error){$("aerr").textContent=PESAN[r.data.error]||"Gagal. Coba lagi.";return}
+tk=r.data.token;mine=r.data.nama;localStorage.setItem("tk",tk);$("pw").value="";masukApp()};
+$("keluar").onclick=async function(){try{await db.rpc("keluar_karyawan",{p_token:tk})}catch(e){}tampilAuth("")};
+$("gpw").onclick=async function(){
+var l=prompt("Password lama:");if(l===null)return;var b=prompt("Password baru (minimal 6 karakter):");if(b===null)return;
+var r=await db.rpc("ganti_password",{p_token:tk,p_lama:l,p_baru:b});
+alert(r.data==="ok"?"Password diganti.":r.data==="salah"?"Password lama salah.":r.data==="pendek"?"Password baru minimal 6 karakter.":"Gagal. Coba lagi.")};
+var started=false;
+async function masukApp(){$("auth").classList.add("hide");$("app").classList.remove("hide");$("who").textContent=mine;
+if(!started){started=true;await init()}else{ready=true;await load();if(document.visibilityState==="visible")conn()}}
+(async function(){modeAuth(false);
+if(tk){try{var r=await db.rpc("sesi_karyawan_cek",{p_token:tk});if(r.data){mine=r.data;masukApp();return}}catch(e){}}
+tampilAuth("")})();
 </script></body></html>

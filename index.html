@@ -5,7 +5,10 @@
 <title>ASK MATAHARI SKA</title>
 <link rel="stylesheet" href="style.css">
 <style>
-.hero{background:linear-gradient(135deg,var(--pri),#7aa2ff);color:#fff;border-radius:22px;padding:20px 18px;margin-bottom:16px}
+.hero{background:radial-gradient(circle at 92% 8%,rgba(255,255,255,.22) 0,rgba(255,255,255,0) 38%),linear-gradient(135deg,#ff2a4d,#b3001e 70%,#14213d);color:#fff;border-radius:22px;padding:20px 18px;margin-bottom:16px;box-shadow:0 8px 22px rgba(234,0,41,.25)}
+.panel{background:var(--card);border:1px solid var(--bd);border-left:5px solid var(--pri);border-radius:16px;padding:12px 14px 16px;margin-bottom:14px}
+.panel .sec{margin-top:4px}
+.wajib{color:var(--pri);font-size:13px;font-weight:700}
 .hero h1{font-size:24px;margin:0 0 6px}.hero p{margin:0;opacity:.92}
 .loc{display:inline-block;background:rgba(255,255,255,.22);border-radius:99px;padding:3px 12px;font-size:14px;margin-bottom:10px;font-weight:600}
 .sec{display:flex;align-items:center;gap:8px;font-weight:700;margin:18px 0 10px}
@@ -24,29 +27,20 @@
 </style>
 </head><body><main>
 <div id="form">
-<div class="hero"><img src="icon-192.png" alt="" style="width:46px;height:46px;border-radius:12px;float:right"><span class="loc" id="loc">📍 Memuat…</span><h1>Butuh bantuan? 👋</h1><p>Pilih brand dan bantuan yang dibutuhkan. Karyawan World ini segera datang.</p></div>
+<div class="hero"><img src="icon-192.png" alt="" style="width:46px;height:46px;border-radius:12px;float:right"><span class="loc" id="loc">📍 Memuat…</span><h1>Butuh bantuan? 👋</h1><p>Pilih brand dan tulis nomor MPAS barangnya. Karyawan World ini segera datang.</p></div>
 <div id="onl" class="s" style="margin:-2px 2px 12px;font-weight:600"></div>
-<div class="sec"><span class="num">1</span>Pilih brand</div>
-<div class="grid" id="brands"></div>
-<div class="sec"><span class="num">2</span>Butuh bantuan apa?</div>
-<div class="grid" id="needs">
-<button class="opt on" data-n="Cek size"><span class="nd">📏</span>Cek size</button>
-<button class="opt" data-n="Info promo"><span class="nd">🏷️</span>Info promo</button>
-<button class="opt" data-n="Cari barang"><span class="nd">🔍</span>Cari barang</button>
-<button class="opt" data-n="Ruang ganti"><span class="nd">🚪</span>Ruang ganti</button>
-<button class="opt" data-n="Minta rekomendasi"><span class="nd">✨</span>Rekomendasi</button>
-<button class="opt" data-n="Bantuan lainnya"><span class="nd">💬</span>Lainnya</button>
-</div>
-<div class="sec"><span class="num">3</span>Detail (boleh dikosongkan)</div>
+<div class="panel"><div class="sec"><span class="num">1</span>Pilih brand <span class="wajib">wajib</span></div>
+<select id="brands"><option value="">Pilih brand…</option></select></div>
+<div class="panel"><div class="sec"><span class="num">2</span>Nomor MPAS barang <span class="wajib">wajib</span></div>
+<input id="mpas" placeholder="Contoh: 1234567" autocomplete="off" autocapitalize="characters" maxlength="30">
+<p class="s" style="font-size:13px;margin:6px 0 0">Tulis nomor MPAS barang yang ingin dicek atau dicari.</p></div>
+<div class="panel"><div class="sec"><span class="num">3</span>Tambahan <span class="s" style="font-weight:400">(boleh dikosongkan)</span></div>
 <input id="note" placeholder="Contoh: kemeja biru size L">
 <input id="nm" placeholder="Ciri Anda, contoh: Ibu baju merah" style="margin-top:8px">
-<div id="fotobox" class="hide">
 <label style="margin-top:12px">📷 Foto barang (opsional)</label>
-<p class="s" style="font-size:14px;margin:0 0 8px">Foto barang yang ingin dicek size atau dicari, supaya karyawan tahu barang yang mana. Hindari memotret wajah orang.</p>
 <input id="foto" type="file" accept="image/*" capture="environment">
-<img id="prev" alt="" class="hide" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-top:8px">
-</div>
-<button class="btn" id="send">🙋 Panggil Karyawan</button>
+<img id="prev" alt="" class="hide" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-top:8px"></div>
+<button class="btn call" id="send">🙋 Panggil Karyawan</button>
 <a class="btn" id="kat0" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;background:var(--card);color:var(--tx);border:1px solid var(--bd)">🛍️ Lihat katalog produk Matahari</a>
 </div>
 <div id="status" class="hide">
@@ -69,25 +63,15 @@
 var db=supabase.createClient(CFG.url,CFG.key);
 var $=function(x){return document.getElementById(x)};
 var pulau=new URLSearchParams(location.search).get("titik")||new URLSearchParams(location.search).get("pulau")||"p1";
-var brand=null,picked=false,need="Cek size",poll=null,fotoBlob=null,cur=null,bintang=0;
+var poll=null,fotoBlob=null,cur=null,bintang=0;
 $("kat").href=CFG.katalog||"https://www.matahari.com/";$("kat0").href=$("kat").href;
-var perluFoto={"Cek size":1,"Cari barang":1};
-function aturFoto(){$("fotobox").classList.toggle("hide",!perluFoto[need])}
-document.querySelectorAll("#needs .opt").forEach(function(b){b.onclick=function(){
-document.querySelectorAll("#needs .opt").forEach(function(o){o.classList.remove("on")});b.classList.add("on");need=b.dataset.n;aturFoto()}});
-aturFoto();
-function warna(s){var h=0;for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360;return "hsl("+h+",55%,45%)"}
-function addBrand(id,nama,ico){var e=document.createElement("button");e.className="opt bt";
-var a=document.createElement("span");a.className="av";a.style.background=ico?"var(--mut)":warna(nama);a.textContent=ico||nama.charAt(0).toUpperCase();
-var n=document.createElement("span");n.textContent=nama;e.appendChild(a);e.appendChild(n);
-e.onclick=function(){brand=id;picked=true;[].forEach.call($("brands").children,function(o){o.classList.remove("on")});e.classList.add("on")};
-$("brands").appendChild(e)}
+function addBrand(id,nama){var o=document.createElement("option");o.value=id===null?"none":id;o.textContent=nama;$("brands").appendChild(o)}
 async function init(){
 var p=await db.from("pulau").select("nama,lantai,keterangan").eq("id",pulau).maybeSingle();
 if(!p.data){$("loc").textContent="📍 Titik tidak ditemukan";return}
 $("loc").textContent="📍 "+(p.data.lantai?"Lantai "+p.data.lantai+" · ":"")+(p.data.keterangan||p.data.nama);
 var b=await db.from("brand").select("id,nama").eq("pulau_id",pulau).order("nama");
-(b.data||[]).forEach(function(x){addBrand(x.id,x.nama)});addBrand(null,"Tidak tahu / semua","?")}
+(b.data||[]).forEach(function(x){addBrand(x.id,x.nama)});addBrand(null,"Tidak tahu / semua brand")}
 // foto: kecilkan di HP sebelum diunggah (hemat kuota)
 function kecilkan(file){return new Promise(function(ok,gagal){
 var img=new Image(),u=URL.createObjectURL(file);
@@ -115,7 +99,9 @@ $("kirimnilai").disabled=false;
 if(r.error){alert("Gagal mengirim penilaian. Coba lagi.");return}
 cur.dinilai=true;$("nilai").classList.add("hide");$("nilaiok").classList.remove("hide")};
 $("send").onclick=async function(){
-if(!picked){alert("Pilih brand dulu ya.");return}
+var bv=$("brands").value;if(!bv){alert("Pilih brand dulu ya.");return}
+var mp=$("mpas").value.trim();if(mp.length<3){alert("Nomor MPAS wajib diisi.");$("mpas").focus();return}
+var brand=bv==="none"?null:bv;
 var last=+localStorage.getItem("last")||0;
 if(Date.now()-last<60000){alert("Permintaan sebelumnya baru terkirim. Mohon tunggu sebentar.");return}
 $("send").disabled=true;
@@ -124,14 +110,14 @@ try{il=await db.rpc("info_lokasi")}catch(e){}
 if(il&&il.data&&il.data.wajib){
 try{lok=await ambilLokasi()}catch(e){$("send").disabled=false;alert(pesanLokasi(e));return}}
 var url=null,path=null;
-if(fotoBlob&&perluFoto[need]){
+if(fotoBlob){
 path=new Date().toISOString().slice(0,10)+"/"+Date.now()+"-"+Math.random().toString(36).slice(2,8)+".jpg";
 var up=await db.storage.from("foto-permintaan").upload(path,fotoBlob,{contentType:"image/jpeg"});
 if(up.error){path=null;if(!confirm("Foto gagal diunggah. Kirim permintaan tanpa foto?")){$("send").disabled=false;return}}
 else url=db.storage.from("foto-permintaan").getPublicUrl(path).data.publicUrl}
-var r=await db.rpc("buat_permintaan",{p_pulau:pulau,p_brand:brand,p_kebutuhan:need,p_catatan:$("note").value,p_nama:$("nm").value,p_foto_url:url,p_foto_path:path,p_lat:lok?lok.lat:null,p_lng:lok?lok.lng:null,p_akurasi:lok?lok.akurasi:null});
+var r=await db.rpc("buat_permintaan",{p_pulau:pulau,p_brand:brand,p_mpas:mp,p_catatan:$("note").value,p_nama:$("nm").value,p_foto_url:url,p_foto_path:path,p_lat:lok?lok.lat:null,p_lng:lok?lok.lng:null,p_akurasi:lok?lok.akurasi:null});
 $("send").disabled=false;
-if(r.data&&r.data.error){alert(r.data.error==="jauh"?"Anda terdeteksi di luar area toko (sekitar "+r.data.jarak+" m). Permintaan hanya bisa dikirim dari dalam toko.":pesanLokasi({}));return}
+if(r.data&&r.data.error){if(r.data.error==="mpas"){alert("Nomor MPAS tidak valid. Gunakan huruf, angka, atau tanda - . / saja.");return}alert(r.data.error==="jauh"?"Anda terdeteksi di luar area toko (sekitar "+r.data.jarak+" m). Permintaan hanya bisa dikirim dari dalam toko.":pesanLokasi({}));return}
 if(r.error||!r.data){alert("Gagal mengirim. Coba lagi.");return}
 localStorage.setItem("last",Date.now());
 cur={id:r.data.id,token:r.data.token,dinilai:false};bintang=0;$("kom").value="";
@@ -140,7 +126,7 @@ $("form").classList.add("hide");$("status").classList.remove("hide");show({statu
 var id=cur.id;
 db.channel("r"+id).on("postgres_changes",{event:"UPDATE",schema:"public",table:"permintaan",filter:"id=eq."+id},function(m){show(m.new)}).subscribe();
 poll=setInterval(async function(){var q=await db.from("permintaan").select("status,diambil_oleh").eq("id",id).maybeSingle();if(q.data)show(q.data)},5000)};
-$("again").onclick=function(){$("note").value="";$("foto").value="";fotoBlob=null;$("prev").classList.add("hide");$("form").classList.remove("hide");$("status").classList.add("hide")};
+$("again").onclick=function(){$("note").value="";$("mpas").value="";$("foto").value="";fotoBlob=null;$("prev").classList.add("hide");$("form").classList.remove("hide");$("status").classList.add("hide")};
 // jumlah karyawan online di area ini (tanpa nama)
 async function jmlOnline(){try{var r=await db.rpc("jumlah_online",{p_pulau:pulau});if(r.error||r.data==null)return;var n=r.data;
 $("onl").textContent=n>0?"🟢 "+n+" karyawan siap membantu di area ini":"⚪ Karyawan akan segera dihubungi lewat HP mereka";}catch(e){}}
