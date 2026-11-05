@@ -25,6 +25,7 @@
 </head><body><main>
 <div id="form">
 <div class="hero"><img src="icon-192.png" alt="" style="width:46px;height:46px;border-radius:12px;float:right"><span class="loc" id="loc">📍 Memuat…</span><h1>Butuh bantuan? 👋</h1><p>Pilih brand dan bantuan yang dibutuhkan. Karyawan World ini segera datang.</p></div>
+<div id="onl" class="s" style="margin:-2px 2px 12px;font-weight:600"></div>
 <div class="sec"><span class="num">1</span>Pilih brand</div>
 <div class="grid" id="brands"></div>
 <div class="sec"><span class="num">2</span>Butuh bantuan apa?</div>
@@ -118,14 +119,19 @@ if(!picked){alert("Pilih brand dulu ya.");return}
 var last=+localStorage.getItem("last")||0;
 if(Date.now()-last<60000){alert("Permintaan sebelumnya baru terkirim. Mohon tunggu sebentar.");return}
 $("send").disabled=true;
+var lok=null,il=null;
+try{il=await db.rpc("info_lokasi")}catch(e){}
+if(il&&il.data&&il.data.wajib){
+try{lok=await ambilLokasi()}catch(e){$("send").disabled=false;alert(pesanLokasi(e));return}}
 var url=null,path=null;
 if(fotoBlob&&perluFoto[need]){
 path=new Date().toISOString().slice(0,10)+"/"+Date.now()+"-"+Math.random().toString(36).slice(2,8)+".jpg";
 var up=await db.storage.from("foto-permintaan").upload(path,fotoBlob,{contentType:"image/jpeg"});
 if(up.error){path=null;if(!confirm("Foto gagal diunggah. Kirim permintaan tanpa foto?")){$("send").disabled=false;return}}
 else url=db.storage.from("foto-permintaan").getPublicUrl(path).data.publicUrl}
-var r=await db.rpc("buat_permintaan",{p_pulau:pulau,p_brand:brand,p_kebutuhan:need,p_catatan:$("note").value,p_nama:$("nm").value,p_foto_url:url,p_foto_path:path});
+var r=await db.rpc("buat_permintaan",{p_pulau:pulau,p_brand:brand,p_kebutuhan:need,p_catatan:$("note").value,p_nama:$("nm").value,p_foto_url:url,p_foto_path:path,p_lat:lok?lok.lat:null,p_lng:lok?lok.lng:null,p_akurasi:lok?lok.akurasi:null});
 $("send").disabled=false;
+if(r.data&&r.data.error){alert(r.data.error==="jauh"?"Anda terdeteksi di luar area toko (sekitar "+r.data.jarak+" m). Permintaan hanya bisa dikirim dari dalam toko.":pesanLokasi({}));return}
 if(r.error||!r.data){alert("Gagal mengirim. Coba lagi.");return}
 localStorage.setItem("last",Date.now());
 cur={id:r.data.id,token:r.data.token,dinilai:false};bintang=0;$("kom").value="";
@@ -135,5 +141,14 @@ var id=cur.id;
 db.channel("r"+id).on("postgres_changes",{event:"UPDATE",schema:"public",table:"permintaan",filter:"id=eq."+id},function(m){show(m.new)}).subscribe();
 poll=setInterval(async function(){var q=await db.from("permintaan").select("status,diambil_oleh").eq("id",id).maybeSingle();if(q.data)show(q.data)},5000)};
 $("again").onclick=function(){$("note").value="";$("foto").value="";fotoBlob=null;$("prev").classList.add("hide");$("form").classList.remove("hide");$("status").classList.add("hide")};
+// jumlah karyawan online di area ini (tanpa nama)
+async function jmlOnline(){try{var r=await db.rpc("jumlah_online",{p_pulau:pulau});if(r.error||r.data==null)return;var n=r.data;
+$("onl").textContent=n>0?"🟢 "+n+" karyawan siap membantu di area ini":"⚪ Karyawan akan segera dihubungi lewat HP mereka";}catch(e){}}
+jmlOnline();setInterval(function(){if(document.visibilityState==="visible")jmlOnline()},60000);
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")jmlOnline()});
+// lokasi: dipakai hanya bila toko mewajibkannya
+function ambilLokasi(){return new Promise(function(ok,gagal){if(!navigator.geolocation){gagal({code:0});return}
+navigator.geolocation.getCurrentPosition(function(p){ok({lat:p.coords.latitude,lng:p.coords.longitude,akurasi:p.coords.accuracy})},function(e){gagal(e)},{enableHighAccuracy:true,timeout:12000,maximumAge:30000})})}
+function pesanLokasi(e){return e&&e.code===1?"Izinkan akses lokasi di browser, lalu tekan Panggil lagi. Lokasi dipakai untuk memastikan Anda berada di toko.":"Lokasi belum terbaca. Coba lagi, atau pindah ke tempat yang lebih terbuka."}
 init();
 </script></body></html>

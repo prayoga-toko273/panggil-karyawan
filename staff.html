@@ -22,6 +22,7 @@
 <button class="btn" id="notif" style="margin:14px 0 6px">🔔 Aktifkan notifikasi</button>
 <button class="btn" id="suara" style="margin:0 0 6px;background:var(--card);color:var(--tx);border:1px solid var(--bd)">🔊 Aktifkan suara alarm di aplikasi</button>
 <p class="s" id="nst" style="font-size:14px">Isi nama dan pilih World, lalu tekan Aktifkan notifikasi. Anda hanya menerima panggilan untuk World yang dipilih.</p>
+<p class="s" id="onl" style="font-size:14px;font-weight:600"></p>
 <div id="list"></div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -33,9 +34,15 @@ var $=function(x){return document.getElementById(x)};
 var worldSel=[];try{worldSel=JSON.parse(localStorage.getItem("worlds")||"null")||(localStorage.getItem("world")&&localStorage.getItem("world")!=="all"?[localStorage.getItem("world")]:[])}catch(e){}
 var ready=false,ch=null,iv=null,lastBeep=0,worlds={},brands={},pulaus={};
 $("me").value=localStorage.getItem("nama")||"";
+var devId=localStorage.getItem("devid");if(!devId){devId="d"+Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem("devid",devId)}
+var pv=null,hiddenAt=0;
+// online = aplikasi ini sedang terbuka. Sinyal dikirim tiap 45 detik; berhenti sendiri saat halaman ditutup atau disembunyikan.
+function ping(){if(document.visibilityState!=="visible"||!ready)return;var i=info();
+if(!i.nama){$("onl").textContent="Isi Nama-NIK agar tercatat online.";return}
+db.rpc("ping_online",{p_id:devId,p_nama:i.nama,p_world:i.world}).then(function(r){if(r&&r.data===true)$("onl").textContent="🟢 Anda tercatat online selama halaman ini terbuka."}).catch(function(){})}
 function wname(){return worldSel.length?worldSel.map(function(i){return worlds[i]||i}).join(", "):"semua World"}
 function info(){return {nama:$("me").value.trim(),peran:"staff",world:worldSel.length?worldSel.join(","):null}}
-$("me").onchange=function(){localStorage.setItem("nama",$("me").value.trim());segarkanPush(db,info())};
+$("me").onchange=function(){localStorage.setItem("nama",$("me").value.trim());segarkanPush(db,info());ping()};
 var alarm=new Audio("suara-notifikasi-ask.mp3");alarm.loop=true;alarm.preload="auto";
 var alarmOn=localStorage.getItem("alarm_on")==="1",diamSampai=0,unlocked=false;
 function unlock(){if(unlocked||!alarmOn)return;alarm.play().then(function(){alarm.pause();alarm.currentTime=0;unlocked=true}).catch(function(){})}
@@ -81,9 +88,11 @@ c.appendChild(btn);L.appendChild(c)})}
 function conn(){
 if(!ch){var o={event:"*",schema:"public",table:"permintaan"};if(worldSel.length)o.filter="world_id=in.("+worldSel.join(",")+")";
 ch=db.channel("staff-"+worldSel.join("-")).on("postgres_changes",o,function(m){if(m.eventType==="INSERT")beep();load()}).subscribe()}
-if(!iv)iv=setInterval(load,30000)}
-function disc(){if(ch){db.removeChannel(ch);ch=null}if(iv){clearInterval(iv);iv=null}}
-document.addEventListener("visibilitychange",function(){if(!ready)return;if(document.visibilityState==="visible"){load();conn()}else disc()});
+if(!iv)iv=setInterval(load,30000);
+if(!pv){ping();pv=setInterval(ping,45000)}}
+function disc(){if(ch){db.removeChannel(ch);ch=null}if(iv){clearInterval(iv);iv=null}if(pv){clearInterval(pv);pv=null}}
+document.addEventListener("visibilitychange",function(){if(!ready)return;
+if(document.visibilityState==="visible"){if(hiddenAt&&Date.now()-hiddenAt>1200000){location.reload();return}load();conn()}else{hiddenAt=Date.now();disc()}});
 async function init(){setSuara();
 var w=await db.from("world").select("id,nama");
 (w.data||[]).sort(function(a,b){return (parseInt(a.id.slice(1))||0)-(parseInt(b.id.slice(1))||0)}).forEach(function(x){worlds[x.id]=x.nama});
