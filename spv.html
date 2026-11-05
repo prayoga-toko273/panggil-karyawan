@@ -26,6 +26,13 @@ details{margin-bottom:10px}summary{font-weight:700;padding:10px 0}.kst{display:g
 .dh{display:flex;justify-content:space-between;align-items:center;gap:8px}.dn{font-weight:700;overflow-wrap:anywhere;line-height:1.25}
 .bar{height:6px;border-radius:99px;background:var(--bd);margin:7px 0 6px;overflow:hidden}.bar i{display:block;height:100%;border-radius:99px;background:#3b5bdb}
 .dm{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--mut)}.dm b{color:var(--tx)}
+.back{border:0;background:none;color:var(--pri);font:inherit;font-weight:700;padding:6px 0;margin:0}
+.mi{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:13px 14px;margin-bottom:8px;font:inherit;color:var(--tx)}
+.mi .ic{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:color-mix(in srgb,var(--pri) 10%,var(--card))}
+.mi .tx{flex:1;min-width:0}.mi b{display:block}.mi small{color:var(--mut);font-size:13px}.mi .ar{color:var(--mut);font-size:20px}
+.stz{color:#f5a524;letter-spacing:1px}.sb{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;padding:5px 0;font:inherit;color:var(--tx);text-align:left}
+.sb .bar{flex:1;margin:0}.sb .bar i{background:#f5a524}.sb em{font-style:normal;min-width:26px;text-align:right;font-weight:700}
+.chips button{white-space:nowrap}
 </style>
 </head><body><main>
 <div id="gate" class="hide">
@@ -36,6 +43,7 @@ details{margin-bottom:10px}summary{font-weight:700;padding:10px 0}.kst{display:g
 <p class="s" id="ge" style="margin-top:10px"></p>
 </div>
 <div id="app" class="hide">
+<div id="home">
 <h1>ASK MATAHARI SKA · Monitor SPV</h1>
 <p class="s" id="hai" style="font-weight:700;margin-bottom:8px"></p>
 <select id="pl"></select>
@@ -53,13 +61,20 @@ details{margin-bottom:10px}summary{font-weight:700;padding:10px 0}.kst{display:g
 <div class="dist" id="dist"></div>
 <div class="legend"><span><i style="background:var(--ok)"></i>Cepat <em id="lg1">0</em></span><span><i style="background:var(--warn)"></i>Normal <em id="lg2">0</em></span><span><i style="background:#dc2626"></i>Lambat <em id="lg3">0</em></span></div></div>
 <div class="card row"><div><div class="s" style="margin:0">Penilaian pelanggan</div><b id="k7" style="font-size:20px;color:#f5a524">-</b></div></div>
-<h2>Karyawan hari ini</h2><div class="card" id="onl"></div>
 <h2>Sedang berjalan</h2><div id="act"></div>
-<h2>Kinerja karyawan</h2><div class="card" id="kar"></div>
-<h2>Per World</h2><div class="card" id="wld"></div>
-<h2>Per brand</h2><div class="card" id="brd"></div>
-<h2>Riwayat terbaru</h2><div id="his"></div>
-<h2>Karyawan dengan notifikasi aktif</h2><div id="aktif"></div>
+<h2>Menu</h2><div id="menu"></div>
+<p class="s" id="upd" style="font-size:13px;margin-top:14px"></p>
+</div>
+<div id="sub" class="hide">
+<button class="back" id="back">← Kembali</button>
+<h1 id="subj" style="margin:8px 0 12px"></h1>
+<div class="pn hide" id="pn-onl"><div class="card" id="onl"></div></div>
+<div class="pn hide" id="pn-kar"><div class="card" id="kar"></div></div>
+<div class="pn hide" id="pn-wld"><div class="card" id="wld"></div></div>
+<div class="pn hide" id="pn-brd"><div class="card" id="brd"></div></div>
+<div class="pn hide" id="pn-nilai"><div class="card" id="nsum"></div><div class="chips" id="nchip"></div><div id="nlist"></div></div>
+<div class="pn hide" id="pn-his"><div id="his"></div></div>
+<div class="pn hide" id="pn-set">
 <details id="lokbox" class="hide" style="margin-top:18px"><summary>📍 Lokasi toko (wajib lokasi customer)</summary>
 <p class="s" id="lokst" style="margin:8px 0">Memuat…</p>
 <label for="lokrad" style="margin-top:0">Radius yang diizinkan (meter)</label>
@@ -76,7 +91,8 @@ details{margin-bottom:10px}summary{font-weight:700;padding:10px 0}.kst{display:g
 <input id="pb2" type="password" inputmode="numeric" maxlength="6" placeholder="Ulangi PIN baru" autocomplete="off">
 <button class="btn" id="gp">Simpan PIN baru</button>
 <p class="s" id="gpm" style="margin-top:8px"></p></details>
-<p class="s" id="upd" style="font-size:13px;margin-top:14px"></p>
+</div>
+</div>
 </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -130,12 +146,10 @@ w.appendChild(m);box.appendChild(w)})}
 daftarData($("kar"),d.karyawan,"nama",true);
 daftarData($("wld"),d.world,"world",false);
 daftarData($("brd"),d.brand,"brand",false);
-var H=$("his");H.innerHTML="";if(!d.riwayat.length)H.appendChild(kosong("Belum ada riwayat."));
-d.riwayat.forEach(function(x){var m=x.diambil_pada?mn(x.dibuat,x.diambil_pada):null;
-var t=new Date(x.dibuat).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
-H.appendChild(baris((brands[x.brand_id]||"Semua brand")+(/^Panggilan/.test(x.kebutuhan||"")?"":" · "+x.kebutuhan),m!=null?tag(m):null,t+" · "+(x.diambil_oleh||"-")+(m!=null?" · respons "+f(m)+" mnt":"")+(x.selesai_pada&&x.diambil_pada?" · layanan "+f(mn(x.diambil_pada,x.selesai_pada))+" mnt":"")+(x.rating?" · "+"⭐".repeat(x.rating):"")+(x.komentar?" · \u201c"+x.komentar+"\u201d":"")))});
+MENU_DATA={on:null,kar:d.karyawan.length,wld:d.world.length,brd:d.brand.length,nilai:d.n_rating?"⭐ "+f(+d.rating)+" · "+d.n_rating+" penilaian":"Belum ada penilaian"};gambarMenu();
+if(halaman==="nilai")loadNilai();if(halaman==="his")loadRiwayat();
 $("upd").textContent="Diperbarui "+new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})+(per==="0"?" · otomatis tiap 1 menit":" · muat ulang halaman untuk data terbaru")}
-async function loadOnline(){var r=await db.rpc("daftar_online",{p_world:sel==="all"?null:sel,p_pin:pin});if(r.data){onlineList=r.data;gambarOnline()}}
+async function loadOnline(){var r=await db.rpc("daftar_online",{p_world:sel==="all"?null:sel,p_pin:pin});if(r.data){onlineList=r.data;gambarOnline();gambarMenu()}}
 function durasi(n){n=Math.round(n);return n<60?n+" mnt":Math.floor(n/60)+" j "+(n%60)+" mnt"}
 function gambarOnline(){var L=$("onl");if(!L)return;L.innerHTML="";
 var m={};karList.forEach(function(k){m[k.nama]={n:k.n,rata:k.rata,on:false,w:null}});
@@ -176,19 +190,7 @@ m.textContent=pesanLok(r.data)+(r.data==="ok"?" Akurasi GPS saat ini sekitar "+M
 function(e){$("lokset").disabled=false;m.textContent=e.code===1?"Izinkan akses lokasi di browser lalu coba lagi.":"Lokasi belum terbaca. Coba lagi."},
 {enableHighAccuracy:true,timeout:15000,maximumAge:0})};
 $("lokoff").onclick=async function(){var r=await db.rpc("setel_lokasi",{p_pin:pin,p_lat:null,p_lng:null,p_radius:null,p_wajib:false});$("lokmsg").textContent=pesanLok(r.data);muatLokasi()};
-async function loadAktif(){
-var r=await db.rpc("daftar_aktif",{p_world:sel==="all"?null:sel,p_pin:pin});
-var L=$("aktif");L.innerHTML="";if(!r.data)return;
-var ids=sel==="all"?Object.keys(worlds):[sel];
-ids.forEach(function(id){
-var st=r.data.filter(function(x){return x.peran==="staff"&&(!x.world_ids||x.world_ids.indexOf(id)>=0)});
-var sp=[];
-var dt=el("details"),sm=el("summary","",(worlds[id]||id)+" · "+st.length+" karyawan"+(st.length?"":" ⚠️ belum ada"));
-dt.appendChild(sm);
-dt.appendChild(el("div","s",st.map(function(x){return x.nama+(x.world_ids?"":" (semua World)")}).join(", ")||"Belum ada karyawan yang mendaftar."));
-if(sp.length)dt.appendChild(el("div","s","SPV: "+sp.map(function(x){return x.nama}).join(", ")));
-L.appendChild(dt)})}
-$("notif").onclick=async function(){try{await aktifkanPush(db,info());$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua World":worlds[sel])+").";loadAktif()}catch(e){$("nst").textContent="⚠️ "+e.message}};
+$("notif").onclick=async function(){try{await aktifkanPush(db,info());$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua World":worlds[sel])+")."}catch(e){$("nst").textContent="⚠️ "+e.message}};
 function conn(){
 if(per!=="0")return;
 if(!ch){var o={event:"*",schema:"public",table:"permintaan"};if(sel!=="all")o.filter="world_id=eq."+sel;
@@ -196,7 +198,48 @@ ch=db.channel("spv").on("postgres_changes",o,function(){if(Date.now()-lastLoad>1
 if(!iv)iv=setInterval(load,60000)}
 function disc(){if(ch){db.removeChannel(ch);ch=null}if(iv){clearInterval(iv);iv=null}}
 document.addEventListener("visibilitychange",function(){if(!ready)return;if(document.visibilityState==="visible"){load();conn()}else disc()});
-function ulang(){disc();load();loadAktif();if(document.visibilityState==="visible")conn()}
+var halaman="",MENU_DATA={};
+var MENU=[["onl","🟢","Karyawan hari ini"],["kar","📊","Kinerja karyawan"],["wld","🏬","Per World"],["brd","🏷️","Per brand"],["nilai","⭐","Penilaian customer"],["his","🕘","Riwayat"],["set","⚙️","Pengaturan"]];
+var SUBTXT={onl:"online dan yang sudah merespon",kar:"kecepatan dan bintang per orang",wld:"ringkasan tiap World",brd:"ringkasan tiap brand",his:"100 permintaan terakhir",set:"lokasi toko, akun karyawan, PIN"};
+function gambarMenu(){var m=$("menu");m.innerHTML="";
+MENU.forEach(function(x){var b=el("button","mi"),ic=el("span","ic",x[1]),tx=el("span","tx");
+var sub=x[0]==="onl"?(onlineList.length+" online sekarang"):x[0]==="kar"?(MENU_DATA.kar!=null?MENU_DATA.kar+" karyawan":SUBTXT.kar):x[0]==="wld"?(MENU_DATA.wld!=null?MENU_DATA.wld+" World":SUBTXT.wld):x[0]==="brd"?(MENU_DATA.brd!=null?MENU_DATA.brd+" brand":SUBTXT.brd):x[0]==="nilai"?(MENU_DATA.nilai||"Berdasarkan bintang"):SUBTXT[x[0]];
+tx.appendChild(el("b","",x[2]));tx.appendChild(el("small","",sub));b.appendChild(ic);b.appendChild(tx);b.appendChild(el("span","ar","›"));
+b.onclick=function(){location.hash=x[0]};m.appendChild(b)})}
+function tampil(){var id=(location.hash||"").slice(1),ada=MENU.some(function(x){return x[0]===id});halaman=ada?id:"";
+$("home").classList.toggle("hide",ada);$("sub").classList.toggle("hide",!ada);
+document.querySelectorAll(".pn").forEach(function(p){p.classList.add("hide")});
+if(ada){$("pn-"+id).classList.remove("hide");$("subj").textContent=MENU.filter(function(x){return x[0]===id})[0][2];
+if(id==="nilai")loadNilai();if(id==="his")loadRiwayat();if(id==="onl")loadOnline()}
+window.scrollTo(0,0)}
+window.addEventListener("hashchange",tampil);
+$("back").onclick=function(){if(history.length>1)history.back();else location.hash=""};
+function bintangStr(n){return "★".repeat(n)+"☆".repeat(5-n)}
+function tglWaktu(t){var d=new Date(t);return d.toLocaleDateString("id-ID",{day:"numeric",month:"short"})+" · "+d.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})}
+var nilaiData=null,filterB=0;
+async function loadNilai(){var r=await db.rpc("daftar_penilaian",{p_world:sel==="all"?null:sel,p_hari:+per,p_bintang:null,p_pin:pin});if(!r.data)return;nilaiData=r.data;gambarNilai()}
+function gambarNilai(){var d=nilaiData;if(!d)return;var S=$("nsum");S.innerHTML="";
+if(!d.total){S.appendChild(el("div","s","Belum ada penilaian pada periode ini."));$("nchip").innerHTML="";$("nlist").innerHTML="";return}
+var top=el("div","row");var l=el("div","");var big=el("b","",f(+d.rata));big.style.cssText="font-size:34px;color:#f5a524";l.appendChild(big);l.appendChild(el("span","s"," / 5"));top.appendChild(l);top.appendChild(el("span","s",d.total+" penilaian"));S.appendChild(top);
+var mx=Math.max.apply(null,[1,2,3,4,5].map(function(k){return d.sebaran[k]||0}))||1;
+[5,4,3,2,1].forEach(function(k){var n=d.sebaran[k]||0,b=el("button","sb");b.appendChild(el("span","stz",k+"★"));var bar=el("div","bar"),i=document.createElement("i");i.style.width=(n/mx*100)+"%";bar.appendChild(i);b.appendChild(bar);b.appendChild(el("em","",n));b.onclick=function(){filterB=filterB===k?0:k;gambarNilai()};S.appendChild(b)});
+var C=$("nchip");C.innerHTML="";
+[[0,"Semua ("+d.total+")"]].concat([5,4,3,2,1].map(function(k){return [k,k+"★ ("+(d.sebaran[k]||0)+")"]})).forEach(function(p){var b=el("button",filterB===p[0]?"on":"",p[1]);b.onclick=function(){filterB=p[0];gambarNilai()};C.appendChild(b)});
+var L=$("nlist");L.innerHTML="";var rows=d.daftar.filter(function(x){return !filterB||x.rating===filterB});
+if(!rows.length)L.appendChild(kosong("Tidak ada penilaian untuk pilihan ini."));
+rows.forEach(function(x){var c=el("div","card"),h=el("div","row");h.appendChild(el("span","stz",bintangStr(x.rating)));h.lastChild.style.fontSize="18px";h.appendChild(el("span","s",tglWaktu(x.waktu)));h.lastChild.style.margin="0";c.appendChild(h);
+var k=el("div","",x.komentar?"\u201c"+x.komentar+"\u201d":"Tanpa komentar");k.style.cssText="margin:6px 0 4px;"+(x.komentar?"":"color:var(--mut);font-style:italic");c.appendChild(k);
+c.appendChild(el("div","s",x.brand+" · "+x.world+(x.diambil_oleh?" · dilayani "+x.diambil_oleh:"")));c.lastChild.style.cssText="margin:0;font-size:13px";L.appendChild(c)})}
+async function loadRiwayat(){var r=await db.rpc("daftar_riwayat",{p_world:sel==="all"?null:sel,p_hari:+per,p_pin:pin});var H=$("his");H.innerHTML="";if(!r.data)return;
+if(!r.data.length){H.appendChild(kosong("Belum ada riwayat pada periode ini."));return}
+r.data.forEach(function(x){var m=x.diambil_pada?mn(x.dibuat,x.diambil_pada):null;
+var c=el("div","card"),h=el("div","row");h.appendChild(el("b","",x.brand+" · "+x.world));if(m!=null)h.appendChild(tag(m));else h.appendChild(el("span","tag",x.status==="menunggu"?"Menunggu":"Diproses"));c.appendChild(h);
+var s1=el("div","s",tglWaktu(x.dibuat)+" · "+(x.diambil_oleh||"belum diambil"));s1.style.cssText="margin:4px 0 0;font-size:13px";c.appendChild(s1);
+var det=[];if(m!=null)det.push("respons "+f(m)+" mnt");if(x.selesai_pada&&x.diambil_pada)det.push("layanan "+f(mn(x.diambil_pada,x.selesai_pada))+" mnt");
+if(det.length){var s2=el("div","s",det.join(" · "));s2.style.cssText="margin:2px 0 0;font-size:13px";c.appendChild(s2)}
+if(x.rating){var s3=el("div","",bintangStr(x.rating)+(x.komentar?"  \u201c"+x.komentar+"\u201d":""));s3.style.cssText="margin:6px 0 0;color:#f5a524";c.appendChild(s3)}
+H.appendChild(c)})}
+function ulang(){disc();load();if(document.visibilityState==="visible")conn()}
 async function init(){
 ready=true;
 $("hai").textContent="Halo, "+akun.nama+" · "+({spv:"SPV Area",sm:"Store Manager",asm:"Asst. Store Manager"}[akun.peran]||"")+(akun.semua?" · semua World":" · "+akun.worlds.length+" World");
@@ -211,7 +254,7 @@ $("pr").onchange=function(){per=$("pr").value;localStorage.setItem("spv_per",per
 var b=await db.from("brand").select("id,nama");(b.data||[]).forEach(function(x){brands[x.id]=x.nama});
 if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$("nst").textContent="iPhone: tekan Bagikan lalu Add to Home Screen, kemudian buka dari ikonnya.";
 else if(await segarkanPush(db,info()))$("nst").textContent="✅ Notifikasi SPV aktif ("+(sel==="all"?"semua World":worlds[sel])+").";
-muatLokasi();muatAkun();ulang()}
+muatLokasi();muatAkun();gambarMenu();tampil();ulang()}
 $("gp").onclick=async function(){
 var m=$("gpm");if($("pb1").value!==$("pb2").value){m.textContent="PIN baru dan ulangannya tidak sama.";return}
 $("gp").disabled=true;var r=await db.rpc("ganti_pin",{p_pin_lama:$("pl0").value.trim(),p_pin_baru:$("pb1").value.trim()});$("gp").disabled=false;
