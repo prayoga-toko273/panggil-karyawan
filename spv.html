@@ -54,8 +54,8 @@ details{margin-bottom:10px}summary{font-weight:700;padding:10px 0}.kst{display:g
 <button class="btn" id="lokset">Pakai lokasi saya sekarang sebagai titik toko dan aktifkan</button>
 <button class="btn" id="lokoff" style="margin-top:8px;background:var(--card);color:var(--tx);border:1px solid var(--bd)">Nonaktifkan wajib lokasi</button>
 <p class="s" id="lokmsg" style="margin-top:8px">Tekan tombol pertama saat Anda berdiri di tengah lantai penjualan. Di dalam mal GPS bisa meleset, jadi pakai radius 200 sampai 400 meter.</p></details>
-<details id="akbox" class="hide" style="margin-top:18px"><summary>👥 Akun karyawan (reset password)</summary>
-<p class="s" style="margin:8px 0">Bila seseorang lupa password, atau barcode didaftarkan orang lain, hapus akunnya. Karyawan itu lalu mendaftar ulang dengan password baru.</p>
+<details id="akbox" class="hide" style="margin-top:18px"><summary>👥 Akun karyawan (lupa password)</summary>
+<p class="s" style="margin:8px 0">Password karyawan disimpan terenkripsi, jadi tidak bisa dilihat. Bila karyawan lupa, tekan Reset password: muncul password sementara 6 angka, berikan ke karyawan itu langsung. Hapus akun hanya untuk barcode yang didaftarkan orang lain (Store Manager atau Asst. Store Manager).</p>
 <div id="aklist"></div></details>
 <details style="margin-top:18px"><summary>🔑 Ganti PIN saya</summary>
 <input id="pl0" type="password" inputmode="numeric" maxlength="6" placeholder="PIN lama" autocomplete="off" style="margin-bottom:8px">
@@ -130,12 +130,16 @@ if(v.n>0){kanan.appendChild(el("b","",v.n+"x respon"));kanan.appendChild(el("spa
 else kanan.appendChild(el("span","ks",v.on?"belum merespon":"-"));
 rw.appendChild(kiri);rw.appendChild(kanan);L.appendChild(rw)});
 L.appendChild(el("div","s","Online = aplikasi karyawan sedang terbuka. Yang tidak online tetap menerima notifikasi di HP.")).style.fontSize="12px"}
-async function muatAkun(){var b=$("akbox");if(!akun||!(akun.peran==="sm"||akun.peran==="asm"||akun.semua))return;b.classList.remove("hide");
+async function muatAkun(){var b=$("akbox");if(!akun)return;var bisaHapus=akun.peran==="sm"||akun.peran==="asm"||akun.semua;b.classList.remove("hide");
 var r=await db.rpc("daftar_akun_karyawan",{p_pin:pin});var L=$("aklist");L.innerHTML="";
 if(!r.data||!r.data.length){L.appendChild(el("div","s","Belum ada karyawan yang mendaftar."));return}
 r.data.forEach(function(x){var rw=el("div","row");rw.style.margin="6px 0";rw.appendChild(el("span","",x.nama+"-"+x.nik));
-var t=document.createElement("button");t.className="btn sm";t.style.background="var(--card)";t.style.color="var(--tx)";t.style.border="1px solid var(--bd)";t.textContent="Hapus akun";
-t.onclick=async function(){if(!confirm("Hapus akun "+x.nama+"-"+x.nik+"? Karyawan harus mendaftar ulang."))return;await db.rpc("hapus_akun_karyawan",{p_pin:pin,p_nik:x.nik});muatAkun()};rw.appendChild(t);L.appendChild(rw)})}
+var bx=el("div","");bx.style.display="flex";bx.style.gap="6px";
+function tombol(tx,fn){var t=document.createElement("button");t.className="btn sm";t.style.cssText="background:var(--card);color:var(--tx);border:1px solid var(--bd);font-size:13px;padding:8px 10px";t.textContent=tx;t.onclick=fn;bx.appendChild(t)}
+tombol("Reset password",async function(){if(!confirm("Reset password "+x.nama+"-"+x.nik+"?"))return;var r=await db.rpc("reset_password_karyawan",{p_pin:pin,p_nik:x.nik});
+alert(r.data?"Password sementara "+x.nama+": "+r.data+"\n\nBerikan ke karyawan itu langsung. Setelah masuk, ia bisa menggantinya lewat tombol Ganti password.":"Gagal mereset. Coba lagi.")});
+if(bisaHapus)tombol("Hapus",async function(){if(!confirm("Hapus akun "+x.nama+"-"+x.nik+"? Karyawan harus mendaftar ulang."))return;await db.rpc("hapus_akun_karyawan",{p_pin:pin,p_nik:x.nik});muatAkun()});
+rw.appendChild(bx);L.appendChild(rw)})}
 async function muatLokasi(){var b=$("lokbox");if(!akun||!(akun.peran==="sm"||akun.peran==="asm"||akun.semua))return;b.classList.remove("hide");
 var r=await db.rpc("info_lokasi");var d=r.data;if(!d)return;$("lokrad").value=d.radius;
 $("lokst").textContent=d.wajib?"✅ Wajib lokasi AKTIF. Radius "+d.radius+" m dari titik toko.":d.diatur?"Titik toko sudah diatur, wajib lokasi NONAKTIF.":"Belum diatur. Customer belum diwajibkan memakai lokasi."}
