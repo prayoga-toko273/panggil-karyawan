@@ -27,13 +27,13 @@
 </style>
 </head><body><main>
 <div id="form">
-<div class="hero"><img src="icon-192.png" alt="" style="width:46px;height:46px;border-radius:12px;float:right"><span class="loc" id="loc">📍 Memuat…</span><h1>Butuh bantuan? 👋</h1><p>Pilih brand dan tulis nomor MPAS barangnya. Karyawan World ini segera datang.</p></div>
+<div class="hero"><img src="icon-192.png" alt="" style="width:46px;height:46px;border-radius:12px;float:right"><span class="loc" id="loc">📍 Memuat…</span><h1>Butuh bantuan? 👋</h1><p>Pilih brand dan ambil lokasi Anda. Karyawan World ini segera datang.</p></div>
 <div id="onl" class="s" style="margin:-2px 2px 12px;font-weight:600"></div>
 <div class="panel"><div class="sec"><span class="num">1</span>Pilih brand <span class="wajib">wajib</span></div>
 <select id="brands"><option value="">Pilih brand…</option></select></div>
-<div class="panel"><div class="sec"><span class="num">2</span>Nomor MPAS barang <span class="wajib">wajib</span></div>
-<input id="mpas" placeholder="Contoh: 1234567" autocomplete="off" autocapitalize="characters" maxlength="30">
-<p class="s" style="font-size:13px;margin:6px 0 0">Tulis nomor MPAS barang yang ingin dicek atau dicari.</p></div>
+<div class="panel"><div class="sec"><span class="num">2</span>Lokasi Anda saat ini <span class="wajib">wajib</span></div>
+<button class="opt" id="lokbtn" type="button" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">📍 Ambil lokasi saat ini</button>
+<p class="s" id="lokinfo" style="font-size:13px;margin:8px 0 0">Lokasi dipakai untuk memastikan Anda berada di toko.</p></div>
 <div class="panel"><div class="sec"><span class="num">3</span>Tambahan <span class="s" style="font-weight:400">(boleh dikosongkan)</span></div>
 <input id="note" placeholder="Contoh: kemeja biru size L">
 <input id="nm" placeholder="Ciri Anda, contoh: Ibu baju merah" style="margin-top:8px">
@@ -63,7 +63,7 @@
 var db=supabase.createClient(CFG.url,CFG.key);
 var $=function(x){return document.getElementById(x)};
 var pulau=new URLSearchParams(location.search).get("titik")||new URLSearchParams(location.search).get("pulau")||"p1";
-var poll=null,fotoBlob=null,cur=null,bintang=0;
+var poll=null,lok=null,fotoBlob=null,cur=null,bintang=0;
 $("kat").href=CFG.katalog||"https://www.matahari.com/";$("kat0").href=$("kat").href;
 function addBrand(id,nama){var o=document.createElement("option");o.value=id===null?"none":id;o.textContent=nama;$("brands").appendChild(o)}
 async function init(){
@@ -100,24 +100,20 @@ if(r.error){alert("Gagal mengirim penilaian. Coba lagi.");return}
 cur.dinilai=true;$("nilai").classList.add("hide");$("nilaiok").classList.remove("hide")};
 $("send").onclick=async function(){
 var bv=$("brands").value;if(!bv){alert("Pilih brand dulu ya.");return}
-var mp=$("mpas").value.trim();if(mp.length<3){alert("Nomor MPAS wajib diisi.");$("mpas").focus();return}
+if(!lok){alert("Tekan Ambil lokasi saat ini dulu ya.");$("lokbtn").focus();return}
 var brand=bv==="none"?null:bv;
 var last=+localStorage.getItem("last")||0;
 if(Date.now()-last<60000){alert("Permintaan sebelumnya baru terkirim. Mohon tunggu sebentar.");return}
 $("send").disabled=true;
-var lok=null,il=null;
-try{il=await db.rpc("info_lokasi")}catch(e){}
-if(il&&il.data&&il.data.wajib){
-try{lok=await ambilLokasi()}catch(e){$("send").disabled=false;alert(pesanLokasi(e));return}}
 var url=null,path=null;
 if(fotoBlob){
 path=new Date().toISOString().slice(0,10)+"/"+Date.now()+"-"+Math.random().toString(36).slice(2,8)+".jpg";
 var up=await db.storage.from("foto-permintaan").upload(path,fotoBlob,{contentType:"image/jpeg"});
 if(up.error){path=null;if(!confirm("Foto gagal diunggah. Kirim permintaan tanpa foto?")){$("send").disabled=false;return}}
 else url=db.storage.from("foto-permintaan").getPublicUrl(path).data.publicUrl}
-var r=await db.rpc("buat_permintaan",{p_pulau:pulau,p_brand:brand,p_mpas:mp,p_catatan:$("note").value,p_nama:$("nm").value,p_foto_url:url,p_foto_path:path,p_lat:lok?lok.lat:null,p_lng:lok?lok.lng:null,p_akurasi:lok?lok.akurasi:null});
+var r=await db.rpc("buat_permintaan",{p_pulau:pulau,p_brand:brand,p_catatan:$("note").value,p_nama:$("nm").value,p_foto_url:url,p_foto_path:path,p_lat:lok?lok.lat:null,p_lng:lok?lok.lng:null,p_akurasi:lok?lok.akurasi:null});
 $("send").disabled=false;
-if(r.data&&r.data.error){if(r.data.error==="mpas"){alert("Nomor MPAS tidak valid. Gunakan huruf, angka, atau tanda - . / saja.");return}alert(r.data.error==="jauh"?"Anda terdeteksi di luar area toko (sekitar "+r.data.jarak+" m). Permintaan hanya bisa dikirim dari dalam toko.":pesanLokasi({}));return}
+if(r.data&&r.data.error){alert(r.data.error==="jauh"?"Anda terdeteksi di luar area toko (sekitar "+r.data.jarak+" m). Permintaan hanya bisa dikirim dari dalam toko.":pesanLokasi({}));return}
 if(r.error||!r.data){alert("Gagal mengirim. Coba lagi.");return}
 localStorage.setItem("last",Date.now());
 cur={id:r.data.id,token:r.data.token,dinilai:false};bintang=0;$("kom").value="";
@@ -126,7 +122,7 @@ $("form").classList.add("hide");$("status").classList.remove("hide");show({statu
 var id=cur.id;
 db.channel("r"+id).on("postgres_changes",{event:"UPDATE",schema:"public",table:"permintaan",filter:"id=eq."+id},function(m){show(m.new)}).subscribe();
 poll=setInterval(async function(){var q=await db.from("permintaan").select("status,diambil_oleh").eq("id",id).maybeSingle();if(q.data)show(q.data)},5000)};
-$("again").onclick=function(){$("note").value="";$("mpas").value="";$("foto").value="";fotoBlob=null;$("prev").classList.add("hide");$("form").classList.remove("hide");$("status").classList.add("hide")};
+$("again").onclick=function(){$("note").value="";$("lokbtn").textContent="📍 Ambil lokasi saat ini";lok=null;$("lokinfo").textContent="Lokasi dipakai untuk memastikan Anda berada di toko.";$("foto").value="";fotoBlob=null;$("prev").classList.add("hide");$("form").classList.remove("hide");$("status").classList.add("hide")};
 // jumlah karyawan online di area ini (tanpa nama)
 async function jmlOnline(){try{var r=await db.rpc("jumlah_online",{p_pulau:pulau});if(r.error||r.data==null)return;var n=r.data;
 $("onl").textContent=n>0?"🟢 "+n+" karyawan siap membantu di area ini":"⚪ Karyawan akan segera dihubungi lewat HP mereka";}catch(e){}}
@@ -136,5 +132,9 @@ document.addEventListener("visibilitychange",function(){if(document.visibilitySt
 function ambilLokasi(){return new Promise(function(ok,gagal){if(!navigator.geolocation){gagal({code:0});return}
 navigator.geolocation.getCurrentPosition(function(p){ok({lat:p.coords.latitude,lng:p.coords.longitude,akurasi:p.coords.accuracy})},function(e){gagal(e)},{enableHighAccuracy:true,timeout:12000,maximumAge:30000})})}
 function pesanLokasi(e){return e&&e.code===1?"Izinkan akses lokasi di browser, lalu tekan Panggil lagi. Lokasi dipakai untuk memastikan Anda berada di toko.":"Lokasi belum terbaca. Coba lagi, atau pindah ke tempat yang lebih terbuka."}
+$("lokbtn").onclick=async function(){$("lokbtn").disabled=true;$("lokinfo").textContent="Mengambil lokasi…";
+try{lok=await ambilLokasi();$("lokbtn").textContent="✅ Lokasi terambil (ketuk untuk ambil ulang)";$("lokinfo").textContent="Akurasi sekitar "+Math.round(lok.akurasi)+" m."}
+catch(e){lok=null;$("lokbtn").textContent="📍 Ambil lokasi saat ini";$("lokinfo").textContent=pesanLokasi(e)}
+$("lokbtn").disabled=false};
 init();
 </script></body></html>

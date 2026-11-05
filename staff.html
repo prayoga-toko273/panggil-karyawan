@@ -15,10 +15,10 @@
 <h1>ASK MATAHARI SKA · Karyawan</h1>
 <div id="auth" class="card hide" style="margin-top:12px">
 <div class="chips"><button id="tmasuk" class="on">Masuk</button><button id="tdaftar">Daftar baru</button></div>
-<label for="nik" style="margin-top:4px">NIK</label><input id="nik" placeholder="Contoh: 1023" autocomplete="username" autocapitalize="characters">
+<label for="nik" style="margin-top:4px">Barcode</label><input id="nik" placeholder="Barcode Anda, contoh: 1023" autocomplete="username" autocapitalize="characters">
 <div id="rnama" class="hide"><label for="nama">Nama</label><input id="nama" placeholder="Contoh: Rina" autocomplete="name"></div>
 <label for="pw">Password</label><input id="pw" type="password" placeholder="Minimal 6 karakter" autocomplete="current-password">
-<p class="s" style="font-size:13px;margin:6px 0 0">Daftar sekali dengan NIK Anda. Password dibuat sendiri, supaya tidak ada yang bisa memakai nama Anda.</p>
+<p class="s" style="font-size:13px;margin:6px 0 0">Daftar sekali dengan barcode Anda. Password dibuat sendiri, supaya tidak ada yang bisa memakai nama Anda.</p>
 <p id="aerr" style="color:#ea0029;font-weight:600;margin:8px 0 0"></p>
 <button class="btn" id="aok">Masuk</button></div>
 <div id="app" class="hide">
@@ -118,9 +118,9 @@ function tampilAuth(pesan){tk="";localStorage.removeItem("tk");ready=false;disc(
 async function sesiOk(){try{var r=await db.rpc("sesi_karyawan_cek",{p_token:tk});if(r.error)return true;if(!r.data){tampilAuth("Sesi habis. Silakan masuk lagi.");return false}return true}catch(e){return true}}
 function modeAuth(d){modeDaftar=d;$("tmasuk").className=d?"":"on";$("tdaftar").className=d?"on":"";$("rnama").classList.toggle("hide",!d);$("aok").textContent=d?"Daftar":"Masuk";$("pw").autocomplete=d?"new-password":"current-password";$("aerr").textContent=""}
 $("tmasuk").onclick=function(){modeAuth(false)};$("tdaftar").onclick=function(){modeAuth(true)};
-var PESAN={ada:"NIK ini sudah terdaftar. Pilih Masuk. Bila bukan Anda yang mendaftar, minta SPV mereset akun.",data:"NIK harus 4 sampai 20 huruf atau angka, nama 2 sampai 40 huruf.",password:"Password minimal 6 karakter.",salah:"NIK atau password salah.",kunci:"Terlalu banyak salah. Coba lagi 5 menit lagi."};
+var PESAN={ada:"Barcode ini sudah terdaftar. Pilih Masuk. Bila bukan Anda yang mendaftar, minta SPV mereset akun.",data:"Barcode harus 4 sampai 20 huruf atau angka, nama 2 sampai 40 huruf.",password:"Password minimal 6 karakter.",salah:"Barcode atau password salah.",kunci:"Terlalu banyak salah. Coba lagi 5 menit lagi."};
 $("aok").onclick=async function(){
-var nik=$("nik").value.trim(),pw=$("pw").value;if(!nik||!pw){$("aerr").textContent="Isi NIK dan password.";return}
+var nik=$("nik").value.trim(),pw=$("pw").value;if(!nik||!pw){$("aerr").textContent="Isi barcode dan password.";return}
 $("aok").disabled=true;
 var r=modeDaftar?await db.rpc("daftar_karyawan",{p_nik:nik,p_nama:$("nama").value,p_password:pw}):await db.rpc("masuk_karyawan",{p_nik:nik,p_password:pw});
 $("aok").disabled=false;
