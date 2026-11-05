@@ -15,6 +15,17 @@ details{margin-bottom:10px}summary{font-weight:700;padding:10px 0}.kst{display:g
 .krow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--bd)}
 .kl{min-width:0;flex:1}.kn{font-weight:600;overflow-wrap:anywhere;line-height:1.25}.ks{font-size:12px;color:var(--mut)}
 .kr{flex:none;text-align:right;display:flex;flex-direction:column;align-items:flex-end}.kr b{font-size:14px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.tile{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px 14px;border-top:4px solid var(--bd)}
+.tile span{display:block;font-size:13px;color:var(--mut)}.tile b{font-size:28px;line-height:1.2}
+.t-wait{border-top-color:var(--warn)}.t-proc{border-top-color:#2563eb}.t-done{border-top-color:var(--ok)}
+.dist{display:flex;height:14px;border-radius:99px;overflow:hidden;background:var(--bd);margin:10px 0 8px}
+.dist i{display:block;height:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--mut)}.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}.legend em{font-style:normal;font-weight:700;color:var(--tx)}
+.dr{padding:11px 0;border-top:1px solid var(--bd)}.dr:first-child{border-top:0;padding-top:2px}
+.dh{display:flex;justify-content:space-between;align-items:center;gap:8px}.dn{font-weight:700;overflow-wrap:anywhere;line-height:1.25}
+.bar{height:6px;border-radius:99px;background:var(--bd);margin:7px 0 6px;overflow:hidden}.bar i{display:block;height:100%;border-radius:99px;background:#3b5bdb}
+.dm{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--mut)}.dm b{color:var(--tx)}
 </style>
 </head><body><main>
 <div id="gate" class="hide">
@@ -30,19 +41,21 @@ details{margin-bottom:10px}summary{font-weight:700;padding:10px 0}.kst{display:g
 <select id="pl"></select>
 <select id="pr"><option value="0">Hari ini</option><option value="7">7 hari terakhir</option><option value="30">30 hari terakhir</option></select>
 <button class="btn" id="notif" style="margin:0 0 6px">🔔 Aktifkan notifikasi SPV</button>
-<p class="s" id="nst" style="font-size:14px">Penilaian: Cepat = diambil dalam 1 menit, Normal = 1 sampai 3 menit, Lambat = lebih dari 3 menit.</p>
-<div class="grid">
-<div class="card"><div class="s" style="margin:0">Menunggu</div><p class="k" id="k1">0</p></div>
-<div class="card"><div class="s" style="margin:0">Diproses</div><p class="k" id="k2">0</p></div>
-<div class="card"><div class="s" style="margin:0">Selesai</div><p class="k" id="k3">0</p></div>
-<div class="card"><div class="s" style="margin:0">Rata-rata respons</div><p class="k" id="k4">-</p></div>
-<div class="card"><div class="s" style="margin:0">Cepat</div><p class="k" id="k5" style="color:var(--ok)">-</p></div>
-<div class="card"><div class="s" style="margin:0">Lambat</div><p class="k" id="k6" style="color:#dc2626">0</p></div>
-<div class="card" style="grid-column:1/3"><div class="s" style="margin:0">Penilaian pelanggan (rata-rata bintang)</div><p class="k" id="k7" style="color:#f5a524">-</p></div>
+<p class="s" id="nst" style="font-size:13px">Cepat = diambil dalam 1 menit · Normal = 1 sampai 3 menit · Lambat = lebih dari 3 menit.</p>
+<h2 style="margin-top:6px">Ringkasan</h2>
+<div class="tiles">
+<div class="tile t-wait"><span>Menunggu</span><b id="k1">0</b></div>
+<div class="tile t-proc"><span>Diproses</span><b id="k2">0</b></div>
+<div class="tile t-done"><span>Selesai</span><b id="k3">0</b></div>
+<div class="tile"><span>Rata-rata respons</span><b id="k4">-</b></div>
 </div>
+<div class="card"><div class="row"><b>Kecepatan layanan</b><span class="s" style="margin:0" id="k5">-</span></div>
+<div class="dist" id="dist"></div>
+<div class="legend"><span><i style="background:var(--ok)"></i>Cepat <em id="lg1">0</em></span><span><i style="background:var(--warn)"></i>Normal <em id="lg2">0</em></span><span><i style="background:#dc2626"></i>Lambat <em id="lg3">0</em></span></div></div>
+<div class="card row"><div><div class="s" style="margin:0">Penilaian pelanggan</div><b id="k7" style="font-size:20px;color:#f5a524">-</b></div></div>
 <h2>Karyawan hari ini</h2><div class="card" id="onl"></div>
 <h2>Sedang berjalan</h2><div id="act"></div>
-<h2>Penilaian karyawan</h2><div id="kar"></div>
+<h2>Kinerja karyawan</h2><div class="card" id="kar"></div>
 <h2>Per World</h2><div class="card" id="wld"></div>
 <h2>Per brand</h2><div class="card" id="brd"></div>
 <h2>Riwayat terbaru</h2><div id="his"></div>
@@ -92,24 +105,35 @@ var r=await db.rpc("ringkasan_spv",{p_world:sel==="all"?null:sel,p_hari:+per,p_p
 var d=r.data;if(!d){if(r.error)return;$("app").classList.add("hide");$("gate").classList.remove("hide");return}
 $("k1").textContent=d.menunggu;$("k2").textContent=d.diproses;$("k3").textContent=d.selesai;
 $("k4").textContent=d.rata!=null?f(d.rata)+" mnt":"-";
-$("k5").textContent=d.n_resp?Math.round(d.cepat/d.n_resp*100)+"%":"-";$("k6").textContent=d.lambat;
+var nor=Math.max(0,d.n_resp-d.cepat-d.lambat);$("k5").textContent=d.n_resp?Math.round(d.cepat/d.n_resp*100)+"% cepat":"belum ada data";
+$("lg1").textContent=d.cepat;$("lg2").textContent=nor;$("lg3").textContent=d.lambat;
+var D=$("dist");D.innerHTML="";if(d.n_resp){[[d.cepat,"var(--ok)"],[nor,"var(--warn)"],[d.lambat,"#dc2626"]].forEach(function(p){if(p[0]>0){var e=document.createElement("i");e.style.width=(p[0]/d.n_resp*100)+"%";e.style.background=p[1];D.appendChild(e)}})}
 $("k7").textContent=d.rating!=null?"⭐ "+f(+d.rating)+" / 5 ("+d.n_rating+" penilaian)":"Belum ada penilaian";
 var A=$("act");A.innerHTML="";
 if(!d.aktif.length)A.appendChild(kosong("Tidak ada permintaan aktif. 👍"));
 d.aktif.forEach(function(x){var m=Math.floor(mn(x.dibuat,new Date()));
 var g=x.status==="menunggu"?el("span","tag"+(m>=LAMBAT?" red":""),"Menunggu "+m+" mnt"):el("span","tag g",(x.diambil_oleh||"")+" · "+m+" mnt");
-A.appendChild(baris((brands[x.brand_id]||"Semua brand")+" · "+x.kebutuhan,g,(worlds[x.world_id]||"-")+" · "+(pulaus[x.pulau_id]||x.pulau_id)+(x.nama?" · "+x.nama:"")+(x.catatan?" · "+x.catatan:"")))});
+A.appendChild(baris((brands[x.brand_id]||"Semua brand")+(/^Panggilan/.test(x.kebutuhan||"")?"":" · "+x.kebutuhan),g,(worlds[x.world_id]||"-")+" · "+(pulaus[x.pulau_id]||x.pulau_id)+(x.nama?" · "+x.nama:"")+(x.catatan?" · "+x.catatan:"")))});
 karList=d.karyawan;gambarOnline();loadOnline();
-var K=$("kar");K.innerHTML="";if(!d.karyawan.length)K.appendChild(kosong("Belum ada data."));
-d.karyawan.forEach(function(k){K.appendChild(baris(k.nama,tag(k.rata),k.n+" layanan · rata-rata "+f(k.rata)+" mnt · "+Math.round(k.cepat/k.n*100)+"% cepat · "+k.lambat+" lambat"+(k.n_rating?" · ⭐ "+f(+k.rating)+" ("+k.n_rating+")":" · belum dinilai")))});
-var W=$("wld");W.innerHTML="";if(!d.world.length)W.appendChild(el("span","s","Belum ada data."));
-d.world.forEach(function(b){var rw=el("div","row");rw.style.padding="6px 0";rw.appendChild(el("span","",b.world));rw.appendChild(el("b","",b.n+" · "+f(b.rata)+" mnt"+(b.rating!=null?" · ⭐ "+f(+b.rating):"")));W.appendChild(rw)});
-var B=$("brd");B.innerHTML="";if(!d.brand.length)B.appendChild(el("span","s","Belum ada data."));
-d.brand.forEach(function(b){var rw=el("div","row");rw.style.padding="6px 0";rw.appendChild(el("span","",b.brand));rw.appendChild(el("b","",b.n+" · "+f(b.rata)+" mnt"+(b.rating!=null?" · ⭐ "+f(+b.rating):"")));B.appendChild(rw)});
+function daftarData(box,rows,namaKey,tampil){box.innerHTML="";if(!rows.length){box.appendChild(el("span","s","Belum ada data."));return}
+var mx=Math.max.apply(null,rows.map(function(r){return r.n}))||1;
+rows.slice().sort(function(a,b){return b.n-a.n}).forEach(function(r){var w=el("div","dr"),h=el("div","dh");
+h.appendChild(el("span","dn",r[namaKey]));if(r.rata!=null)h.appendChild(tag(r.rata));w.appendChild(h);
+var bar=el("div","bar"),i=document.createElement("i");i.style.width=Math.max(4,r.n/mx*100)+"%";bar.appendChild(i);w.appendChild(bar);
+var m=el("div","dm");
+function kv(t,v){var sp=el("span","");sp.appendChild(document.createTextNode(t+" "));sp.appendChild(el("b","",v));m.appendChild(sp)}
+kv("Layanan",r.n);if(r.rata!=null)kv("Respons",f(r.rata)+" mnt");
+if(tampil&&r.cepat!=null&&r.n)kv("Cepat",Math.round(r.cepat/r.n*100)+"%");
+if(tampil&&r.lambat)kv("Lambat",r.lambat);
+kv("Bintang",r.rating!=null?"⭐ "+f(+r.rating)+(r.n_rating?" ("+r.n_rating+")":""):"belum dinilai");
+w.appendChild(m);box.appendChild(w)})}
+daftarData($("kar"),d.karyawan,"nama",true);
+daftarData($("wld"),d.world,"world",false);
+daftarData($("brd"),d.brand,"brand",false);
 var H=$("his");H.innerHTML="";if(!d.riwayat.length)H.appendChild(kosong("Belum ada riwayat."));
 d.riwayat.forEach(function(x){var m=x.diambil_pada?mn(x.dibuat,x.diambil_pada):null;
 var t=new Date(x.dibuat).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
-H.appendChild(baris((brands[x.brand_id]||"Semua brand")+" · "+x.kebutuhan,m!=null?tag(m):null,t+" · "+(x.diambil_oleh||"-")+(m!=null?" · respons "+f(m)+" mnt":"")+(x.selesai_pada&&x.diambil_pada?" · layanan "+f(mn(x.diambil_pada,x.selesai_pada))+" mnt":"")+(x.rating?" · "+"⭐".repeat(x.rating):"")+(x.komentar?" · \u201c"+x.komentar+"\u201d":"")))});
+H.appendChild(baris((brands[x.brand_id]||"Semua brand")+(/^Panggilan/.test(x.kebutuhan||"")?"":" · "+x.kebutuhan),m!=null?tag(m):null,t+" · "+(x.diambil_oleh||"-")+(m!=null?" · respons "+f(m)+" mnt":"")+(x.selesai_pada&&x.diambil_pada?" · layanan "+f(mn(x.diambil_pada,x.selesai_pada))+" mnt":"")+(x.rating?" · "+"⭐".repeat(x.rating):"")+(x.komentar?" · \u201c"+x.komentar+"\u201d":"")))});
 $("upd").textContent="Diperbarui "+new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})+(per==="0"?" · otomatis tiap 1 menit":" · muat ulang halaman untuk data terbaru")}
 async function loadOnline(){var r=await db.rpc("daftar_online",{p_world:sel==="all"?null:sel,p_pin:pin});if(r.data){onlineList=r.data;gambarOnline()}}
 function durasi(n){n=Math.round(n);return n<60?n+" mnt":Math.floor(n/60)+" j "+(n%60)+" mnt"}

@@ -80,7 +80,7 @@ rows.forEach(function(x){
 var c=document.createElement("div");c.className="card";
 if(x.foto_url){var im=document.createElement("img");im.className="foto";im.loading="lazy";im.src=x.foto_url;im.alt="Foto barang dari pelanggan";im.onclick=function(){window.open(x.foto_url,"_blank")};c.appendChild(im)}
 var t=document.createElement("div");t.className="row";
-var b=document.createElement("b");b.textContent=(brands[x.brand_id]||"Semua brand")+" · "+x.kebutuhan;
+var b=document.createElement("b");b.textContent=(brands[x.brand_id]||"Semua brand")+(/^Panggilan/.test(x.kebutuhan||"")?"":" · "+x.kebutuhan);
 var g=document.createElement("span");g.className="tag"+(x.status==="diambil"?" g":"");g.textContent=x.status==="diambil"?"Diambil: "+(x.diambil_oleh||""):"Menunggu";
 t.appendChild(b);t.appendChild(g);
 var d=document.createElement("div");d.className="s";d.style.margin="4px 0 10px";
