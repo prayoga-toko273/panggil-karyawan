@@ -72,7 +72,9 @@ var p=await db.from("pulau").select("nama,lantai,keterangan").eq("id",pulau).may
 if(!p.data){$("loc").textContent="📍 Titik tidak ditemukan";return}
 $("loc").textContent="📍 "+(p.data.lantai?"Lantai "+p.data.lantai+" · ":"")+(p.data.keterangan||p.data.nama);
 var b=await db.from("brand").select("id,nama").eq("pulau_id",pulau).order("nama");
-(b.data||[]).forEach(function(x){addBrand(x.id,x.nama)});addBrand(null,"Tidak tahu / semua brand")}
+(b.data||[]).forEach(function(x){addBrand(x.id,x.nama)});addBrand(null,"Tidak tahu / semua brand");
+var pb=new URLSearchParams(location.search).get("brand");
+if(pb){var ok=(b.data||[]).filter(function(x){return x.id===pb})[0];if(ok){$("brands").value=ok.id;document.querySelector(".heroq").textContent="⚡ Mau cepat? Ketuk di sini, karyawan "+ok.nama+" langsung dipanggil";brandNama=ok.nama;}}}
 function bintangUI(){var s=$("stars");s.innerHTML="";for(var i=1;i<=5;i++){(function(i){var e=document.createElement("span");e.textContent=i<=bintang?"★":"☆";e.style.color=i<=bintang?"#f5a524":"var(--mut)";e.onclick=function(){bintang=i;bintangUI()};s.appendChild(e)})(i)}}
 function show(r){var s=r.status;
 $("se").textContent=s==="menunggu"?"⏳":s==="diambil"?"🏃":"✅";$("se").className="e"+(s==="selesai"?"":" pulse");
@@ -89,7 +91,7 @@ var r=await db.rpc("beri_nilai",{p_id:cur.id,p_token:cur.token,p_rating:bintang,
 $("kirimnilai").disabled=false;
 if(r.error){alert("Gagal mengirim penilaian. Coba lagi.");return}
 cur.dinilai=true;$("nilai").classList.add("hide");$("nilaiok").classList.remove("hide")};
-var cepat=false;
+var cepat=false,brandNama="";
 $("send").onclick=async function(){
 var bv=$("brands").value;if(!bv&&cepat){bv="none";$("brands").value="none"}
 if(!bv){alert("Pilih brand dulu ya.");return}
@@ -125,7 +127,7 @@ $("lokbtn").onclick=async function(){$("lokbtn").disabled=true;$("lokinfo").text
 try{lok=await ambilLokasi();$("lokbtn").textContent="✅ Lokasi terambil (ketuk untuk ambil ulang)";$("lokinfo").textContent="Akurasi sekitar "+Math.round(lok.akurasi)+" m."}
 catch(e){lok=null;$("lokbtn").textContent="📍 Ambil lokasi saat ini";$("lokinfo").textContent=pesanLokasi(e)}
 $("lokbtn").disabled=false};
-function panggilCepat(){if(!confirm("Panggil karyawan sekarang?\n\nKaryawan akan datang ke lokasi Anda."))return;cepat=true;var r=$("send").onclick();Promise.resolve(r).then(function(){cepat=false},function(){cepat=false})}
+function panggilCepat(){if(!confirm("Panggil karyawan"+(brandNama?" "+brandNama:"")+" sekarang?\n\nKaryawan akan datang ke lokasi Anda."))return;cepat=true;var r=$("send").onclick();Promise.resolve(r).then(function(){cepat=false},function(){cepat=false})}
 $("hero").onclick=panggilCepat;$("hero").onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();panggilCepat()}};
 init();
 </script></body></html>
